@@ -110,10 +110,10 @@ Every new feature (UI workflow, model, batch pipeline) ships **with three docs
 artifacts in the same PR as the code**. A feature that lands without these is
 considered incomplete and should not be merged.
 
-### 1. Per-feature doc page in `modules/core/app/docs/`
+### 1. Per-feature doc page in `modules/core/app/backend/documentation/`
 
 One markdown file named `<module>_<feature>.md` (snake_case). Required
-sections — see [`modules/core/app/docs/README.md`](../modules/core/app/docs/README.md)
+sections — see [`modules/core/app/backend/documentation/README.md`](../modules/core/app/backend/documentation/README.md)
 for the canonical template:
 
 - **What it does** (one paragraph: input, output, problem solved)
@@ -265,7 +265,7 @@ model_version = get_latest_model_version(model_uc_name)
 
 gwb_model_id = import_model_from_uc(
     user_email=user_email,
-    model_category=ModelCategory.PROTEIN_STUDIES,  # or SINGLE_CELL, SMALL_MOLECULES
+    model_category=ModelCategory.LARGE_MOLECULE,  # or SINGLE_CELL, SMALL_MOLECULE, GENOMICS
     model_uc_name=model_uc_name,
     model_uc_version=model_version,
     model_name="MyModel Display Name",

@@ -521,7 +521,7 @@ A batch workflow is a "new feature" — the three docs artifacts required by
 [`SKILL_GENESIS_WORKBENCH_DEVELOPMENT.md`](SKILL_GENESIS_WORKBENCH_DEVELOPMENT.md#documentation-hard-rule)
 apply in full and must ship in the same PR as the workflow code:
 
-1. **`modules/core/app/docs/<module>_<feature>.md`** — what it does, how to
+1. **`modules/core/app/backend/documentation/<module>_<feature>.md`** — what it does, how to
    use the launch form, what inputs/outputs look like, where results land
    (MLflow run + result dialog), known limitations.
 2. **Root `README.md` bullet** under the matching module in "Inside Genesis

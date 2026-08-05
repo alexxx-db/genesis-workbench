@@ -188,8 +188,23 @@ All datasets below are open/public (UniProt CC-BY 4.0, PDB/ClinVar/1000G public 
 ## $${\color{orange}Changelog}$$
 See [CHANGELOG.md](CHANGELOG.md) for deployment fixes, known issues, and configuration notes.
 
+## $${\color{orange}For}$$ $${\color{orange}Engineers}$$
+
+New to this repo as a Databricks Data + AI engineer? Start with the **[Engineering Guide](docs/ENGINEERING_GUIDE.md)** — a single front door covering how to **use, demo, maintain, and extend** Genesis Workbench, with a 60-second mental model, a repo map, and links into everything below. The full documentation map lives in [`docs/README.md`](docs/README.md).
+
+| I want to… | Read |
+|---|---|
+| Orient myself (use · demo · maintain · extend) | [docs/ENGINEERING_GUIDE.md](docs/ENGINEERING_GUIDE.md) |
+| Understand how it fits together (architecture) | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| Deploy / destroy step by step | [Installation.md](Installation.md) · [docs/Module.md](docs/Module.md) |
+| Fix a specific error | [Troubleshooting skill](claude_skills/SKILL_GENESIS_WORKBENCH_TROUBLESHOOTING.md) · [CHANGELOG.md](CHANGELOG.md) |
+| Add a model / workflow / UI tab | [Development skill](claude_skills/SKILL_GENESIS_WORKBENCH_DEVELOPMENT.md) |
+| Work on the React + FastAPI app | [modules/core/app/README.md](modules/core/app/README.md) |
+| Productionize / harden for a customer | [HARDENING_CHECKLIST.md](HARDENING_CHECKLIST.md) |
+| Look up a life-sciences term | [GLOSSARY.md](GLOSSARY.md) |
+
 ## $${\color{orange}Troubleshooting}$$
-The repo ships [Claude Code skills](claude_skills/) covering installation, deployment, troubleshooting, workflows, and development. These are designed to be loaded into Claude Code; they also serve as the canonical reference for common deployment failures and fixes.
+The repo ships [Claude Code skills](claude_skills/) covering installation, deployment, troubleshooting, workflows, and development. These are designed to be loaded into Claude Code; they also serve as the canonical reference for common deployment failures and fixes. For a human-oriented tour of the same material, see the [Engineering Guide](docs/ENGINEERING_GUIDE.md).
 
 ## $${\color{orange}License}$$
 Please see LICENSE for the details of the license.
