@@ -23,6 +23,7 @@ Start here to find the right doc fast. If you're an engineer picking up the repo
 | **Learn each UI workflow** | [In-app documentation index](../modules/core/app/backend/documentation/index.md) |
 | **Work on the React + FastAPI app** | [App README](../modules/core/app/README.md) |
 | **Run a customer workshop** | [Workshop one-pager](WORKSHOP_ONEPAGER.md) (+ Engineering Guide → Demo) |
+| **Run the Elanco workshop** | [Elanco workshop runbook](ELANCO_WORKSHOP.md) (facilitator run-of-show + click-path) |
 | **Productionize / harden for a customer** | [`../HARDENING_CHECKLIST.md`](../HARDENING_CHECKLIST.md) |
 | **Look up a life-sciences term** | [`../GLOSSARY.md`](../GLOSSARY.md) |
 
@@ -42,6 +43,7 @@ Start here to find the right doc fast. If you're an engineer picking up the repo
 - `CONFIGURATION.md` — every `.env` field (application / cloud / module) in one reference.
 - `OPERATIONS.md` — demo-day runbook + incident-response checklists.
 - `WORKSHOP_ONEPAGER.md` — customer-facing life-sciences workshop one-pager.
+- `ELANCO_WORKSHOP.md` — account-specific facilitator runbook (animal-health narrative, run-of-show, demo click-path, pre-flight).
 - `Module.md` — module deploy/destroy anatomy.
 - `diagrams/` — Mermaid (`.mmd`) sources for the deploy/destroy and per-module deployment diagrams.
 - `images/` — rendered architecture, deploy/destroy, and per-module PNGs used by the READMEs.
