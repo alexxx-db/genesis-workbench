@@ -282,3 +282,43 @@ export function fromCanvasGraph(
   }))
   return { nodes, edges }
 }
+
+// ─── Reference basis ────────────────────────────────────────────────────────
+// What a node's underlying model was trained/built on. `basis_scope` is the
+// coarse transferability class the palette renders as a dot; `reference_basis`
+// is the full sentence shown on hover and in the node detail panel.
+//
+// The distinction that matters to a scientist evaluating the workbench for a
+// non-human species: `agnostic`/`multi` transfer as-is, `host` is tied to an
+// expression system rather than the target organism, `human` needs a swap, and
+// `user` means the basis is whatever they fine-tune on.
+export const BASIS_STYLE: Record<
+  Exclude<CanvasNodeType['basis_scope'], ''>,
+  { label: string; dot: string; text: string }
+> = {
+  agnostic: {
+    label: 'Species-agnostic',
+    dot: 'bg-emerald-500',
+    text: 'text-emerald-700 dark:text-emerald-300',
+  },
+  multi: {
+    label: 'Multi-species',
+    dot: 'bg-teal-500',
+    text: 'text-teal-700 dark:text-teal-300',
+  },
+  host: {
+    label: 'Host-specific',
+    dot: 'bg-sky-500',
+    text: 'text-sky-700 dark:text-sky-300',
+  },
+  user: {
+    label: 'Your data',
+    dot: 'bg-violet-500',
+    text: 'text-violet-700 dark:text-violet-300',
+  },
+  human: {
+    label: 'Human-derived',
+    dot: 'bg-amber-500',
+    text: 'text-amber-700 dark:text-amber-300',
+  },
+}

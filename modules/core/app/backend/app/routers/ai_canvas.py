@@ -63,6 +63,8 @@ class CatalogNode(BaseModel):
     description: str = ""
     module: str | None = None
     available: bool = True
+    reference_basis: str = ""
+    basis_scope: str = ""
     inputs: list[CatalogPort] = []
     outputs: list[CatalogPort] = []
     params: list[CatalogParam] = []

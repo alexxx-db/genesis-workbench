@@ -1007,6 +1007,11 @@ export type CanvasNodeType = {
   description: string
   module: string | null
   available: boolean
+  // Provenance of the model behind this node — what it was trained/built on, and
+  // a coarse transferability class used for the palette badge. Empty for IO and
+  // transform nodes, which have no model behind them.
+  reference_basis: string
+  basis_scope: '' | 'agnostic' | 'multi' | 'human' | 'host' | 'user'
   inputs: CanvasPort[]
   outputs: CanvasPort[]
   params: CanvasParam[]

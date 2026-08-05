@@ -1,5 +1,5 @@
 // Vortex (ai_canvas) — right panel to inspect/edit the selected node's inputs + params.
-import { CATEGORY_STYLE, dtypeColor, inputEditorIsTextarea } from './graph'
+import { BASIS_STYLE, CATEGORY_STYLE, dtypeColor, inputEditorIsTextarea } from './graph'
 import type { VortexNode } from './graph'
 import type { CanvasParam, CanvasPort } from '@/types/api'
 
@@ -92,6 +92,29 @@ export function NodeParamPanel({
             />
             {cat?.description && (
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{cat.description}</p>
+            )}
+            {/* Reference basis — what the model behind this node was trained or
+                built on. Shown in full here (the palette shows only the class)
+                because this is where a scientist decides whether to trust the
+                node for their organism. */}
+            {cat?.basis_scope && cat.reference_basis && (
+              <div className="mt-2 rounded-md border border-border bg-background/60 p-2">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`size-1.5 shrink-0 rounded-full ${BASIS_STYLE[cat.basis_scope].dot}`}
+                  />
+                  <span
+                    className={`text-[10px] font-semibold uppercase tracking-wide ${
+                      BASIS_STYLE[cat.basis_scope].text
+                    }`}
+                  >
+                    {BASIS_STYLE[cat.basis_scope].label}
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                  {cat.reference_basis}
+                </p>
+              </div>
             )}
           </div>
 

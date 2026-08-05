@@ -11,7 +11,10 @@ batch-job name, endpoint-chain id, or a built-in IO handler).
 """
 from __future__ import annotations
 
+from dataclasses import replace
+
 from .node_catalog import NodeCategory, NodeType, ParamField, Port, PortType
+from .reference_basis import basis_for_node_type
 
 # ─── IO nodes ────────────────────────────────────────────────────────────────
 
@@ -584,15 +587,32 @@ _CHAIN_NODES: list[NodeType] = [
 ]
 
 
-CURATED_NODES: list[NodeType] = (
+def _with_basis(nodes: list[NodeType]) -> list[NodeType]:
+    """Stamp each node's reference basis from the single authoring table.
+
+    Applied here rather than written inline on ~40 NodeType literals so the basis
+    strings live in exactly one reviewable place (`reference_basis.py`) and can't
+    drift per node. A node with no entry keeps the empty default and renders no
+    badge — absence of a claim, not a claim of absence."""
+    out: list[NodeType] = []
+    for n in nodes:
+        b = basis_for_node_type(n.type)
+        out.append(n if not b.is_declared
+                   else replace(n, reference_basis=b.text, basis_scope=b.scope))
+    return out
+
+
+CURATED_NODES: list[NodeType] = _with_basis(
     _IO_NODES + _TRANSFORM_NODES + _ENDPOINT_NODES + _WORKFLOW_NODES + _CHAIN_NODES
 )
 
-# Fast lookups used by the catalog builder + executors.
+# Fast lookups used by the catalog builder + executors. All three derive from the
+# stamped CURATED_NODES so every pathway sees the same object — building them from
+# the raw _ENDPOINT_NODES / _WORKFLOW_NODES lists would hand out basis-less copies.
 CURATED_BY_TYPE: dict[str, NodeType] = {n.type: n for n in CURATED_NODES}
 CURATED_BY_ENDPOINT: dict[str, NodeType] = {
-    n.endpoint_display_name: n for n in _ENDPOINT_NODES if n.endpoint_display_name
+    n.endpoint_display_name: n for n in CURATED_NODES if n.endpoint_display_name
 }
 CURATED_BY_JOB: dict[str, NodeType] = {
-    n.job_name: n for n in _WORKFLOW_NODES if n.job_name
+    n.job_name: n for n in CURATED_NODES if n.job_name
 }

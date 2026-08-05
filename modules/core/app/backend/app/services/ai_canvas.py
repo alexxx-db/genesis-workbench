@@ -34,6 +34,7 @@ from genesis_workbench.capabilities import (
     validate_params,
 )
 from genesis_workbench.node_catalog import Port, dtypes_compatible, reshape_path
+from genesis_workbench.reference_basis import basis_for_uc_short
 from genesis_workbench.workbench import (
     UserInfo,
     execute_non_select_query,
@@ -103,6 +104,9 @@ def _serialize_node(node: NodeType, available: bool) -> dict:
         "description": node.description,
         "module": node.module,
         "available": available,
+        # Provenance of the model behind this node (empty for IO/transform).
+        "reference_basis": node.reference_basis,
+        "basis_scope": node.basis_scope,
         "inputs": [_serialize_port(p) for p in node.inputs],
         "outputs": [_serialize_port(p) for p in node.outputs],
         "params": [
@@ -207,6 +211,10 @@ def _generic_endpoint_node(short: str, display_name: str) -> dict:
         category=NodeCategory.ENDPOINT,
         endpoint_display_name=display_name,
         description=f"Deployed endpoint '{display_name}' (no curated schema).",
+        # An uncurated endpoint still gets its basis if the model is one we know —
+        # the schema overlay and the basis table are keyed independently.
+        reference_basis=basis_for_uc_short(short).text,
+        basis_scope=basis_for_uc_short(short).scope,
         inputs=[Port("input", PortType.ANY)],
         outputs=[Port("output", PortType.JSON)],
     )
@@ -283,9 +291,12 @@ def _catalog_prompt_lines(catalog: list[dict]) -> str:
         ins = ", ".join(f"{p['name']}:{p['dtype']}" for p in n["inputs"]) or "—"
         outs = ", ".join(_port_shape_hint(p) for p in n["outputs"]) or "—"
         params = ", ".join(_param_hint(p) for p in n["params"]) or "—"
+        # Only the coarse scope goes in the prompt — the full sentence would cost
+        # a lot of tokens across ~40 nodes for no extra decision value.
+        basis = f' basis[{n["basis_scope"]}]' if n.get("basis_scope") else ""
         lines.append(
             f'- type="{n["type"]}" ({n["category"]}): {n["label"]}. '
-            f"in[{ins}] out[{outs}] params[{params}]"
+            f"in[{ins}] out[{outs}] params[{params}]{basis}"
         )
     return "\n".join(lines)
 

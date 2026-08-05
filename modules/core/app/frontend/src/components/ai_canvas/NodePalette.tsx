@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react'
 
 import { cn } from '@/lib/utils'
 import { MaterialIcon } from '@/components/MaterialIcon'
-import { CATEGORY_STYLE } from './graph'
+import { BASIS_STYLE, CATEGORY_STYLE } from './graph'
 import type { CanvasNodeType } from '@/types/api'
 
 // Prebuilt Workflows first (headline), then Serving Endpoints, Transforms, Data.
@@ -32,7 +32,16 @@ export function NodePalette({
     const f = filter.trim().toLowerCase()
     const groups: Record<string, CanvasNodeType[]> = { io: [], transform: [], endpoint: [], batch: [] }
     for (const n of catalog) {
-      if (f && !n.label.toLowerCase().includes(f) && !n.description.toLowerCase().includes(f)) continue
+      // Basis is searchable too: typing "human" surfaces every human-derived
+      // capability in one pass — the question a non-human-species team asks first.
+      if (
+        f &&
+        !n.label.toLowerCase().includes(f) &&
+        !n.description.toLowerCase().includes(f) &&
+        !n.reference_basis.toLowerCase().includes(f) &&
+        !n.basis_scope.includes(f)
+      )
+        continue
       groups[n.category]?.push(n)
     }
     return groups
@@ -84,7 +93,11 @@ export function NodePalette({
                         e.dataTransfer.effectAllowed = 'move'
                       }}
                       onDoubleClick={() => onAdd(n)}
-                      title={n.description + (n.available ? '' : ' — not currently deployed')}
+                      title={
+                        n.description +
+                        (n.available ? '' : ' — not currently deployed') +
+                        (n.reference_basis ? `\n\nReference basis: ${n.reference_basis}` : '')
+                      }
                       className={cn(
                         'flex w-full cursor-grab items-center gap-1.5 rounded-md border-l-2 border border-border bg-background px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent',
                         style.ring,
@@ -96,6 +109,24 @@ export function NodePalette({
                         <span className="block truncate font-medium text-foreground">{n.label}</span>
                         {!n.available && (
                           <span className="block text-[10px] text-destructive">not deployed</span>
+                        )}
+                        {n.basis_scope && (
+                          <span className="mt-0.5 flex items-center gap-1">
+                            <span
+                              className={cn(
+                                'size-1.5 shrink-0 rounded-full',
+                                BASIS_STYLE[n.basis_scope].dot,
+                              )}
+                            />
+                            <span
+                              className={cn(
+                                'truncate text-[10px]',
+                                BASIS_STYLE[n.basis_scope].text,
+                              )}
+                            >
+                              {BASIS_STYLE[n.basis_scope].label}
+                            </span>
+                          </span>
                         )}
                       </span>
                     </button>

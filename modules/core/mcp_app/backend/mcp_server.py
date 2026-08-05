@@ -106,11 +106,15 @@ def _register_tools() -> int:
             tail = "Returns the run id + URL — poll get_workflow_run_status."
         else:
             tail = "Runs synchronously and returns the result."
+        # The basis travels in the tool description so an agent calling this over
+        # MCP — with no access to the UI — can still tell whether the model's
+        # training data suits the species it is being asked about.
+        basis = f" {cap.basis_sentence}" if cap.basis_sentence else ""
         try:
             mcp.add_tool(
                 _tool_for(cap),
                 name=name,
-                description=f"{cap.label} ({cap.module or 'gwb'}). {cap.description} {tail}",
+                description=f"{cap.label} ({cap.module or 'gwb'}). {cap.description} {tail}{basis}",
             )
             n += 1
         except Exception as e:  # noqa: BLE001 — one bad tool must not skip the rest
@@ -128,7 +132,9 @@ def _register_tools() -> int:
             name = _tool_name(cap)
             runnable = name is not None and not (cap.kind == CHAIN and cap.chain_id not in RUNNABLE_CHAINS)
             out.append({"kind": cap.kind, "label": cap.label, "module": cap.module,
-                        "tool": name if runnable else None, "runnable": runnable})
+                        "tool": name if runnable else None, "runnable": runnable,
+                        "reference_basis": cap.reference_basis,
+                        "basis_scope": cap.basis_scope})
         return out
 
     mcp.add_tool(get_workflow_run_status, name="get_workflow_run_status")
