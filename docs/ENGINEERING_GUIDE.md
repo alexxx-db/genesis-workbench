@@ -45,9 +45,12 @@ genesis-workbench/
 ├── aws.env / azure.env / gcp.env          # per-cloud GPU node types + serving workload sizes
 ├── README.md                              # product overview + full model/dataset inventory
 ├── Installation.md                        # authoritative deploy/destroy mechanics + prerequisites
+├── CONTRIBUTING.md                        # hard rules + dev loop + PR checklist + CI expectations
 ├── CHANGELOG.md                           # decision log — read this for known issues & "why" context
 ├── GLOSSARY.md                            # life-sciences terms cheat sheet
 ├── HARDENING_CHECKLIST.md                 # productionization / security SOW scope
+├── docs/CONFIGURATION.md                  # every .env field (application / cloud / module)
+├── docs/OPERATIONS.md                     # demo-day runbook + incident-response checklists
 ├── claude_skills/                         # deep how-to guides (AI-authored, human-readable)
 ├── docs/                                  # diagrams, images, this guide, doc index
 └── modules/
@@ -86,7 +89,8 @@ Quick reference below.
 - Python 3.11 (use a venv/conda dedicated to this app).
 - A **UC catalog** (existing or new) and a **dedicated schema** used *only* by GWB.
 - A **2X-Small SQL Warehouse** (grab its ID).
-- `application.env` at the repo root + `module.env` in `modules/core/` (see Installation.md for fields).
+- `application.env` at the repo root + `module.env` in `modules/core/` (every field is documented in
+  [`docs/CONFIGURATION.md`](CONFIGURATION.md)).
 
 ### Deploy
 
@@ -128,7 +132,8 @@ with "all users" (the MCP server has no per-caller authZ; see
 ## DEMO — run a clean customer session
 
 Full playbook (agenda, framing, per-account anchors): the [Workshop one-pager](WORKSHOP_ONEPAGER.md).
-Operational essentials below.
+Step-by-step demo-day + incident checklists: the [Operations runbook](OPERATIONS.md). Operational
+essentials below.
 
 **T-minus days (never live):**
 - Deploy **only the modules you'll show** — a full install is a lot of GPU spend and long deploys.
@@ -214,6 +219,8 @@ long-running batch workflow (form → job → MLflow → search past runs → re
 
 ### Three hard rules (a PR that breaks these should not merge)
 
+The full PR checklist and local dev loop live in [`CONTRIBUTING.md`](../CONTRIBUTING.md); the essentials:
+
 1. **Exact-pin every pip dependency** (`pkg==X.Y.Z`) everywhere — notebook `%pip`, DAB
    `environments.spec.dependencies`, PyFunc `pip_requirements`/`conda_env`. Unpinned installs silently
    broke past deploys when PyPI resolution drifted between register-time and serving-time.
@@ -242,8 +249,8 @@ long-running batch workflow (form → job → MLflow → search past runs → re
 
 1. Map the display name → endpoint in `backend/app/services/endpoints.py` (`_MODEL_ENDPOINT_MAP`,
    case-sensitive).
-2. Add an endpoint wrapper (e.g. in `utils/protein_design.py`) — use `inputs=[…]` / `dataframe_records`,
-   never `dataframe_split=`.
+2. Add an endpoint wrapper in the relevant service module under `backend/app/services/` — use
+   `inputs=[…]` / `dataframe_records`, never `dataframe_split=`.
 3. Add a FastAPI route in the right router under `backend/app/routers/` (Pydantic request/response;
    `HTTPException` on failure; `StreamingResponse` + SSE for anything >~5 s).
 4. Add a React tab component under `frontend/src/components/` (TanStack Query mutation; stable query keys;
@@ -274,9 +281,12 @@ table) and are automatically reachable from Vortex and MCP through the shared ex
 | Understand how it fits together (pipeline · data model · executor · consumers) | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Understand the product & see the full model/dataset inventory | [`README.md`](../README.md) |
 | Deploy / destroy step by step | [`Installation.md`](../Installation.md) · [`docs/Module.md`](Module.md) |
+| Look up a config / `.env` field | [`docs/CONFIGURATION.md`](CONFIGURATION.md) |
+| Run a demo / handle an incident | [`docs/OPERATIONS.md`](OPERATIONS.md) |
 | Be walked through a guided deploy | [`SKILL_..._DEPLOY_WIZARD.md`](../claude_skills/SKILL_GENESIS_WORKBENCH_DEPLOY_WIZARD.md) |
 | Fix a specific error | [`SKILL_..._TROUBLESHOOTING.md`](../claude_skills/SKILL_GENESIS_WORKBENCH_TROUBLESHOOTING.md) · [`CHANGELOG.md`](../CHANGELOG.md) |
 | Add a model / workflow / tab | [`SKILL_..._DEVELOPMENT.md`](../claude_skills/SKILL_GENESIS_WORKBENCH_DEVELOPMENT.md) |
+| Contribute (hard rules · dev loop · PR checklist) | [`CONTRIBUTING.md`](../CONTRIBUTING.md) |
 | Add a batch (job-backed) workflow | [`SKILL_..._BATCH_WORKFLOW_PATTERN.md`](../claude_skills/SKILL_GENESIS_WORKBENCH_BATCH_WORKFLOW_PATTERN.md) |
 | Understand each UI tab / workflow | [`.../documentation/index.md`](../modules/core/app/backend/documentation/index.md) |
 | Work on the React + FastAPI app | [`modules/core/app/README.md`](../modules/core/app/README.md) |

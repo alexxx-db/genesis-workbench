@@ -11,6 +11,17 @@ When a new feature looks like:
 
 Follow this pattern end-to-end. Don't invent a parallel approach — every batch workflow in this repo (AlphaFold, Genomics GWAS / Variant Annotation, Guided Enzyme Optimization, Scanpy) has converged on it. Newer implementations refine it slightly; the most complete reference is the **Guided Enzyme Optimization** stack landed on the `guided_enzyme_creation` branch.
 
+> ⚠️ **App-side code snippets below are legacy Streamlit.** The detailed Layer 3–5 examples in this skill
+> still use `st.*` calls and the old `modules/core/app/utils/` and `modules/core/app/views/` paths. **Those
+> directories no longer exist** — the app is now **React + FastAPI**
+> (`modules/core/app/backend/app/services/`, `.../backend/app/routers/`, `frontend/src/`). Treat the
+> Streamlit snippets as *conceptual*: the dispatcher is a function under `backend/app/services/`, and the
+> launch form + "Search Past Runs" are React components under `frontend/src/` backed by a
+> `GET /<feature>/search` FastAPI route. The **job / orchestrator / registration / MLflow layers remain
+> accurate.** For current app-side patterns follow the
+> [Development skill](SKILL_GENESIS_WORKBENCH_DEVELOPMENT.md) and
+> [app README](../modules/core/app/README.md).
+
 ## When to apply
 
 - Any workflow whose runtime exceeds a few seconds. (Sub-second flows that hit a serving endpoint live can use the simpler in-app pattern; this skill is for *job-dispatched* work.)

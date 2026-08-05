@@ -197,8 +197,11 @@ New to this repo as a Databricks Data + AI engineer? Start with the **[Engineeri
 | Orient myself (use · demo · maintain · extend) | [docs/ENGINEERING_GUIDE.md](docs/ENGINEERING_GUIDE.md) |
 | Understand how it fits together (architecture) | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | Deploy / destroy step by step | [Installation.md](Installation.md) · [docs/Module.md](docs/Module.md) |
+| Look up a config / `.env` field | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) |
+| Run a demo / handle an incident | [docs/OPERATIONS.md](docs/OPERATIONS.md) |
 | Fix a specific error | [Troubleshooting skill](claude_skills/SKILL_GENESIS_WORKBENCH_TROUBLESHOOTING.md) · [CHANGELOG.md](CHANGELOG.md) |
 | Add a model / workflow / UI tab | [Development skill](claude_skills/SKILL_GENESIS_WORKBENCH_DEVELOPMENT.md) |
+| Contribute (hard rules · dev loop · PR checklist) | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Work on the React + FastAPI app | [modules/core/app/README.md](modules/core/app/README.md) |
 | Productionize / harden for a customer | [HARDENING_CHECKLIST.md](HARDENING_CHECKLIST.md) |
 | Look up a life-sciences term | [GLOSSARY.md](GLOSSARY.md) |

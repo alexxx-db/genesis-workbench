@@ -133,7 +133,7 @@ A single sub-module can be (re)deployed on its own with `--only-submodule`, e.g.
  - Installation should be done by a **Workspace Admin**
  - Python 3.11 installed. Its recommended to use a conda or venv specific for this application. 
  - Identify the workspace where you want to install the application.
- - Identify the cloud where the databricks workspace is deployed. Current deployment process supports `aws` and `azure`
+ - Identify the cloud where the databricks workspace is deployed. Current deployment process supports `aws`, `azure`, and `gcp`
 
  - You'll need to have the databricks CLI installed ([docs here](https://docs.databricks.com/aws/en/dev-tools/cli/install)) and authenticate to a workspace. 
    - You should have the workspace you want to install to as the **"DEFAULT"** profile. Further details on authentication with the databricks CLI is [here](https://docs.databricks.com/aws/en/dev-tools/cli/authentication).

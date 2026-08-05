@@ -357,14 +357,15 @@ The key must match what you pass to `hit_model_endpoint()` or `get_endpoint_name
 
 ### Step 2: Add endpoint wrapper function
 
-For protein studies, add to `modules/core/app/utils/protein_design.py`:
+Add it to the relevant service module under `modules/core/app/backend/app/services/`
+(e.g. `large_molecule.py`, `single_cell.py`, or a dedicated file):
 ```python
 @mlflow.trace(span_type="LLM")
 def hit_mymodel(input_data):
     return hit_model_endpoint('MyModel Display Name', [input_data])[0]
 ```
 
-For single cell, create utility functions in a dedicated file (e.g., `utils/scimilarity_tools.py`).
+For a new domain, create a dedicated service file (e.g. `backend/app/services/scimilarity_tools.py`).
 
 For endpoints with complex input schemas (not just a list), call the SDK directly:
 ```python

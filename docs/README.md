@@ -12,11 +12,14 @@ Start here to find the right doc fast. If you're an engineer picking up the repo
 | **Understand the product** — modules, models, datasets | [`../README.md`](../README.md) |
 | **Learn one module or submodule** | `modules/<module>/README.md` and `modules/<module>/<submodule>/README.md` |
 | **Deploy / destroy** — prerequisites, env files, mechanics | [`../Installation.md`](../Installation.md) · [Module deploy/destroy](Module.md) |
+| **Look up a config / `.env` field** | [Configuration reference](CONFIGURATION.md) |
 | **Guided, interactive deploy** | [Deploy Wizard skill](../claude_skills/SKILL_GENESIS_WORKBENCH_DEPLOY_WIZARD.md) |
 | **Guided teardown** | [Destroy Wizard skill](../claude_skills/SKILL_GENESIS_WORKBENCH_DESTROY_WIZARD.md) |
 | **Fix an error** | [Troubleshooting skill](../claude_skills/SKILL_GENESIS_WORKBENCH_TROUBLESHOOTING.md) · [`../CHANGELOG.md`](../CHANGELOG.md) |
 | **Add a model / workflow / UI tab** | [Development skill](../claude_skills/SKILL_GENESIS_WORKBENCH_DEVELOPMENT.md) |
 | **Add a batch (job-backed) workflow** | [Batch Workflow Pattern skill](../claude_skills/SKILL_GENESIS_WORKBENCH_BATCH_WORKFLOW_PATTERN.md) |
+| **Contribute** — hard rules, dev loop, PR checklist | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) |
+| **Run a demo / handle an incident** | [Operations runbook](OPERATIONS.md) |
 | **Learn each UI workflow** | [In-app documentation index](../modules/core/app/backend/documentation/index.md) |
 | **Work on the React + FastAPI app** | [App README](../modules/core/app/README.md) |
 | **Run a customer workshop** | [Workshop one-pager](WORKSHOP_ONEPAGER.md) (+ Engineering Guide → Demo) |
@@ -36,6 +39,8 @@ Start here to find the right doc fast. If you're an engineer picking up the repo
 
 - `ENGINEERING_GUIDE.md` — engineer front door (this folder's headline doc).
 - `ARCHITECTURE.md` — how the pieces fit together (pipeline, layers, data model, consumers).
+- `CONFIGURATION.md` — every `.env` field (application / cloud / module) in one reference.
+- `OPERATIONS.md` — demo-day runbook + incident-response checklists.
 - `WORKSHOP_ONEPAGER.md` — customer-facing life-sciences workshop one-pager.
 - `Module.md` — module deploy/destroy anatomy.
 - `diagrams/` — Mermaid (`.mmd`) sources for the deploy/destroy and per-module deployment diagrams.
