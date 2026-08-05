@@ -82,6 +82,12 @@ class NodeType:
     job_name: str | None = None                # BATCH → Jobs API name
     io_kind: str | None = None                 # IO → volume_input | delta_input | text_input | output_sink
     invoke_style: str = "records"              # ENDPOINT query style: "records" | "inputs"
+    # What this capability's model/annotation set was built on, and a coarse
+    # transferability class ("agnostic" | "multi" | "human" | "host" | "user" | "").
+    # Authored once in `reference_basis.py` and stamped on at import — not written
+    # inline per node. Empty for IO/transform nodes, which have no model behind them.
+    reference_basis: str = ""
+    basis_scope: str = ""
     inputs: list[Port] = field(default_factory=list)
     outputs: list[Port] = field(default_factory=list)
     params: list[ParamField] = field(default_factory=list)
@@ -127,6 +133,7 @@ def node_to_dict(n: NodeType) -> dict:
         "chain": n.chain, "requires_endpoints": list(n.requires_endpoints),
         "endpoint_display_name": n.endpoint_display_name, "job_name": n.job_name,
         "io_kind": n.io_kind, "invoke_style": n.invoke_style,
+        "reference_basis": n.reference_basis, "basis_scope": n.basis_scope,
         "inputs": [_port_to_dict(p) for p in n.inputs],
         "outputs": [_port_to_dict(p) for p in n.outputs],
         "params": [_param_to_dict(p) for p in n.params],
@@ -143,6 +150,10 @@ def node_from_dict(d: dict) -> NodeType:
         requires_endpoints=list(d.get("requires_endpoints") or []),
         endpoint_display_name=d.get("endpoint_display_name"), job_name=d.get("job_name"),
         io_kind=d.get("io_kind"), invoke_style=d.get("invoke_style", "records") or "records",
+        # Absent on rows published by an older wheel — an un-migrated catalog
+        # degrades to "no basis declared", never to a wrong one.
+        reference_basis=d.get("reference_basis", "") or "",
+        basis_scope=d.get("basis_scope", "") or "",
         inputs=[_port_from_dict(p) for p in d.get("inputs") or []],
         outputs=[_port_from_dict(p) for p in d.get("outputs") or []],
         params=[_param_from_dict(p) for p in d.get("params") or []],

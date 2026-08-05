@@ -1,8 +1,86 @@
 # Genesis Workbench — Changelog
 
-## Unreleased
+## v2.3.0 (2026-08-05) — Reference basis on every capability · executable hardening checks · workshop-hardening fixes
 
-### Fixes
+Two changes aimed at the same problem from opposite ends: making the platform state
+what it actually is, rather than requiring a presenter to. Wheel `genesis_workbench`
+0.1.35 → 0.1.36; no breaking changes; no schema migration required. Ships together with
+the workshop-hardening fixes below (merged from `feat-gwb-demo-ux`).
+
+### Reference basis — what each model was trained on, surfaced everywhere
+
+The first question a non-human-species or regulated customer asks about a biological
+model is *"what was this trained on?"*. That answer now lives in the system.
+
+- **New `reference_basis.py` in the wheel** — the single authoring home for the
+  provenance of every capability: one plain sentence plus a coarse transferability
+  class (`agnostic` | `multi` | `host` | `human` | `user`). Two lookup tables (by node
+  `type`, by deployed-model UC short name) share one set of constants, because those
+  namespaces genuinely differ (`netsolp` the node vs `netsolp_v1` the model); a test
+  asserts they never disagree about the same underlying model.
+- **Stamped on, not written inline.** `builtin_nodes` applies the basis to
+  `CURATED_NODES` at import via `dataclasses.replace`, so the strings live in one
+  reviewable file instead of ~40 `NodeType` literals that can drift.
+- **Threaded through every pathway.** `NodeType` gains `reference_basis` /
+  `basis_scope`, round-tripping through `node_to_dict`/`node_from_dict`; `Capability`
+  gains the same plus a `basis_sentence` property. The MCP server appends it to each
+  tool description and returns it from `list_capabilities` (so an agent with no UI can
+  still judge species fit); the Vortex catalog API serializes it; the AI generator's
+  catalog prompt carries the coarse scope (not the full sentence — token cost across
+  ~40 nodes for no extra decision value).
+- **Rendered in Vortex** — a class-coloured dot + label in the node palette, the full
+  sentence in the node detail panel, and the basis text is searchable, so typing
+  "human" surfaces every human-derived capability in one pass.
+- **Fails safe.** A catalog row published by an older wheel deserializes to *undeclared*
+  rather than to a wrong claim, and an endpoint with no entry renders no badge —
+  absence of a claim, not a claim of absence.
+- Current coverage: 14 species-agnostic, 12 human-derived, 4 fine-tunable (basis is
+  your data), 1 host-specific, 2 multi-species; the 11 IO/transform nodes correctly
+  declare nothing. Notably `mhcflurry` names the absent BoLA/SLA/DLA/BF equivalents
+  explicitly, and `kermt_admet` states that the shipped ClinTox fine-tune is the
+  default, not the destination.
+
+### Fix — curated lookups handed out un-stamped nodes
+
+`CURATED_BY_ENDPOINT` and `CURATED_BY_JOB` were built from the raw `_ENDPOINT_NODES` /
+`_WORKFLOW_NODES` lists rather than from `CURATED_NODES`. Any post-processing of the
+curated list (the basis stamp being the first) produced two different `NodeType` objects
+for the same node — the executor seeing one, the palette the other. All three lookups now
+derive from `CURATED_NODES`, with a regression test.
+
+### Executable hardening checks
+
+`HARDENING_CHECKLIST.md` states acceptance criteria in prose; `scripts/hardening_check.py`
+now executes the mechanically decidable subset and reports PASS/FAIL/SKIP per checklist
+section number.
+
+- **Checks:** 1.1 jobs/bundles run as a service principal (source + live), 1.2 no
+  hardcoded workspace-specific defaults, 1.3 job clusters ON_DEMAND and cost-tagged,
+  2.2 MCP app not shared broadly (source + live), 3.1 no plaintext credentials in job
+  definitions (dumps job settings via the API, exactly as the criterion states).
+- **Runs anywhere:** `--source-only` needs no credentials, `--json` for CI,
+  `--profile` / `--job-prefix` / `--mcp-app-name` for scoping. Exit 1 on any failure;
+  degrades to SKIP (never a false PASS) when the SDK is absent or auth fails.
+- **Current findings on this repo:** 1.1 FAIL (85 bundle targets `run_as` the deploying
+  user), 1.2 FAIL (the two documented literals in `permissions_config.py`), 2.2 PASS.
+  Failures are findings, not errors — each maps to a numbered workstream with effort and
+  acceptance criteria.
+- `REQUIRED_TAGS` defaults to `("cost_center", "project")` — substitute the customer's
+  tagging standard.
+
+### Notes
+
+- 20 new tests in `tests/test_reference_basis.py` (coverage, table/lookup agreement,
+  serialization round-trip, legacy-row degradation). Wheel 0.1.35 → 0.1.36 with
+  `app/requirements.txt` + `mcp_app/requirements.txt` bumped in step.
+- Basis strings for `pltnum` and `deepstabp` were verified against their model cards:
+  PLTNUM is trained on the NIH3T3 **mouse** fibroblast cell line and shown to generalize
+  to a human (HeLa) line, so it is stamped `multi` (mammalian cell-line-derived), not
+  human-specific; DeepSTABp is trained on the Meltome Atlas (~35k proteins across 10+
+  organisms) and takes organism growth temperature as an explicit input, so it is stamped
+  `multi`.
+
+### Workshop-hardening fixes
 
 - **KERMT fine-tune fails on a fresh user/workspace — `RestException: BAD_REQUEST: For input string: "None"`.** The deploy-time init fine-tune (`kermt_finetune`, no dispatcher `mlflow_run_id`) took the fallback branch in `02_kermt_finetune.py` and called `mlflow.set_experiment("/Users/{user_email}/mlflow_experiments/{experiment_name}")` — a **non-canonical per-user path with no `mkdirs` guard**. On a fresh user whose experiment parent folder doesn't exist, `create_experiment` returns an invalid id and the next `get_experiment` call fails with the `"For input string: None"` backend parse error. (Didn't surface on ci-demo because that user's folder already existed.)
   **Fix:** the fallback branch now routes to the canonical GWB deploy-time location **`/Shared/dbx_genesis_workbench_models/{experiment_name}`** and `w.workspace.mkdirs(...)` the parent first — matching `genesis_workbench.models.set_mlflow_experiment(..., shared=True)` and the register notebooks (e.g. diffdock). Applied to both `kermt_v2` and `kermt_v1`.

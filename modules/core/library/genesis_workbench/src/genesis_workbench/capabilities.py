@@ -24,6 +24,7 @@ from .node_catalog import (
     node_from_dict,
     node_to_dict,
 )
+from .reference_basis import basis_for_node_type, basis_for_uc_short
 from .workbench import execute_non_select_query, execute_select_query
 
 # Execution kinds.
@@ -143,6 +144,15 @@ class Capability:
     params: list[Param] = field(default_factory=list)
     description: str = ""
     available: bool = True
+    # Provenance of the underlying model / annotation set — see reference_basis.py.
+    reference_basis: str = ""
+    basis_scope: str = ""
+
+    @property
+    def basis_sentence(self) -> str:
+        """Basis rendered for prose surfaces (MCP tool descriptions, prompts).
+        Empty string when nothing is declared, so callers can concatenate blindly."""
+        return f"Reference basis: {self.reference_basis}" if self.reference_basis else ""
 
 
 def _ports(spec: str) -> list[Port]:
@@ -240,11 +250,13 @@ def endpoint_capabilities() -> list[Capability]:
                 params = [Param(**p) for p in c.get("params", [])]
             else:
                 ins, outs, style, params = [Port("input")], [Port("output", "json")], "records", []
+            basis = basis_for_uc_short(short)
             caps.append(Capability(
                 id=f"endpoint:{short}", label=str(r["model_display_name"]), kind=ENDPOINT,
                 module=module, endpoint_name=str(r["model_endpoint_name"]), invoke_style=style,
                 inputs=ins, outputs=outs, params=params, available=True,
                 description=f"Deployed model-serving endpoint '{r['model_display_name']}'.",
+                reference_basis=basis.text, basis_scope=basis.scope,
             ))
     return caps
 
@@ -318,8 +330,13 @@ def _batch_node_to_capability(n) -> Capability | None:
     ins = [Port(p.name, str(p.dtype)) for p in n.inputs]
     outs = [Port(p.name, str(p.dtype)) for p in n.outputs]
     params = [_param_from_field(p) for p in n.params]
+    # Prefer the basis published on the node row; fall back to the authoring table
+    # so a catalog published by an older wheel still resolves.
+    basis_text = n.reference_basis or basis_for_node_type(n.type).text
+    basis_scope = n.basis_scope or basis_for_node_type(n.type).scope
     common = dict(id=f"workflow:{n.type}", label=n.label, module=n.module,
-                  inputs=ins, outputs=outs, params=params, description=n.description)
+                  inputs=ins, outputs=outs, params=params, description=n.description,
+                  reference_basis=basis_text, basis_scope=basis_scope)
     if n.kind == "databricks_job":
         return Capability(kind=JOB, job_name=n.job_name, **common)
     if n.kind == "endpoint_chain":
@@ -371,6 +388,8 @@ def _workflow_capabilities_legacy() -> list[Capability]:
                           label=p.get("label", "") or "", help=p.get("help", "") or "")
                     for p in _p("params_json")],
             description=str(r["description"] or ""),
+            reference_basis=basis_for_node_type(str(r["workflow_key"])).text,
+            basis_scope=basis_for_node_type(str(r["workflow_key"])).scope,
         ))
     return caps
 

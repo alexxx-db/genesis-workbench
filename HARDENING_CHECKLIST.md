@@ -14,6 +14,30 @@ engineer.
 
 ---
 
+## Running the checks
+
+The mechanically decidable acceptance criteria below are executed by
+`scripts/hardening_check.py`. Run it against the source tree, or against a live
+deployment to catch drift between what the bundles declare and what the workspace
+actually has:
+
+```bash
+python scripts/hardening_check.py --source-only          # no credentials needed
+python scripts/hardening_check.py --profile <cli-profile>  # + live workspace checks
+python scripts/hardening_check.py --json                 # machine-readable, for CI
+```
+
+Covered today: **1.1** (run_as service principal — source and live), **1.2** (no
+hardcoded workspace-specific defaults), **1.3** (job clusters ON_DEMAND and
+cost-tagged), **2.2** (MCP app not shared broadly — source and live), **3.1** (no
+plaintext credentials in job definitions). Exit code is 1 if any check fails.
+
+A fresh demo-grade install is *expected* to fail several of these. That report is the
+useful artifact: it is evidence of the gap rather than an assertion about it. Set
+`REQUIRED_TAGS` in the script to the customer's tagging standard before relying on 1.3.
+
+---
+
 ## Workstream 1 — Deploy identity & IaC (Service Principal)
 
 ### 1.1 Replace deployer identity with a dedicated deploy Service Principal
