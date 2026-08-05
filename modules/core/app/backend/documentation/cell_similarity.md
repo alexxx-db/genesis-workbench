@@ -47,8 +47,8 @@ Cell Similarity Search finds cells in SCimilarity's 23 million-cell reference da
 
 ### Key Files
 
-- `modules/core/app/views/single_cell_workflows/cell_similarity.py` — UI
-- `modules/core/app/utils/scimilarity_tools.py` — `get_gene_order()`, `align_to_gene_order()`, `get_cell_embeddings()`, `search_nearest_cells()`
+- `modules/core/app/frontend/src/components/CellSimilarityTab.tsx` — UI
+- `modules/core/app/backend/app/services/scimilarity.py` — `get_gene_order()`, `align_to_gene_order()`, `get_cell_embeddings()`, `search_nearest_cells()` (TEDDY equivalents live in `services/teddy.py`)
 - `modules/single_cell/scimilarity/` — SCimilarity model registration
 
 ### Dependencies

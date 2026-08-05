@@ -56,5 +56,6 @@ ADMET & Safety Profiling evaluates small molecules for drug-like properties — 
 
 ### Key Files
 
-- `modules/core/app/utils/small_molecule_tools.py` — `hit_chemprop_bbbp()`, `hit_chemprop_clintox()`, `hit_chemprop_admet()`
+- `modules/core/app/backend/app/services/admet_safety.py` — `predict_bbbp()`, `predict_clintox()`, `predict_admet()` (all via `_query_chemprop()`)
+- `modules/core/app/frontend/src/components/AdmetSafetyTab.tsx` — UI
 - `modules/small_molecule/chemprop/chemprop_v2/notebooks/` — Model registration notebooks

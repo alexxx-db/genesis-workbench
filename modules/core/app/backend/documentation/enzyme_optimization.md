@@ -230,13 +230,13 @@ The "next-iteration parent generator" is a strategy interface so Phase 2 can swa
 
 ### Key Files
 
-- `modules/core/app/views/small_molecule_workflows/enzyme_optimization.py` — UI (the form + Generation-mode toggle + polling results view)
-- `modules/core/app/utils/enzyme_optimization_tools.py` — `start_enzyme_optimization_job` (dispatches to Fast or Accurate job by toggle), `predict_enzyme_properties` (smoke test), `load_optimization_*` result loaders
+- `modules/core/app/frontend/src/components/EnzymeOptimizationTab.tsx` — UI (the form + Generation-mode toggle + Search Past Runs / result view)
+- `modules/core/app/backend/app/services/enzyme_optimization.py` — `start_enzyme_optimization_job` (dispatches to Fast or Accurate job by toggle), `predict_enzyme_properties` (smoke test), `load_optimization_*` result loaders
 - `modules/small_molecule/enzyme_optimization/enzyme_optimization_v1/notebooks/01_run_optimization.py` — the orchestrator notebook, branches on `use_inprocess_ame`
 - `modules/small_molecule/enzyme_optimization/enzyme_optimization_v1/notebooks/utils.py` — predictor registry, reward composer, anchor mechanism, strategy interface, **and** all the Accurate-path helpers (`DevelopabilityCompositeReward`, `load_ame_model`, `_fetch_ame_checkpoints_from_uc`, `_resolve_ame_uc_version`, `install_proteinfoundation_if_needed`, `run_ame_with_rewards`, `warmup_*`)
 - `modules/small_molecule/enzyme_optimization/enzyme_optimization_v1/notebooks/proteinfoundation_requirements.txt` — exact-pinned deps for the Accurate path's in-process AME load
 - `modules/small_molecule/enzyme_optimization/enzyme_optimization_v1/resources/run_optimization.yml` — both job specs (CPU + A10 GPU)
 - `modules/small_molecule/enzyme_optimization/enzyme_optimization_v1/databricks.yml` — per-cloud on-demand overlays for both jobs
 - Predictor submodules under `modules/small_molecule/{netsolp,pltnum,deepstabp,mhcflurry}/`
-- `modules/core/app/utils/structure_utils.py:motif_backbone_rmsd` — Bio.PDB-based motif RMSD helper
-- `modules/core/app/utils/protein_design.py:hit_boltz` — long-timeout Boltz client (the SDK's 60s default was killing cold-start GPU calls)
+- `modules/core/app/backend/app/services/structure_utils.py:motif_backbone_rmsd` — Bio.PDB-based motif RMSD helper
+- `modules/core/app/backend/app/services/protein.py:hit_boltz` — long-timeout Boltz client (the SDK's 60s default was killing cold-start GPU calls)

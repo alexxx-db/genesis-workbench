@@ -102,7 +102,8 @@ Log to MLflow
 
 ### Key Files
 
-- `modules/core/app/views/nvidia/bionemo_esm.py` — UI
+- `modules/core/app/frontend/src/components/bionemo/` — UI (mounted by `frontend/src/pages/Bionemo.tsx`)
+- `modules/core/app/backend/app/services/bionemo.py` + `backend/app/routers/bionemo.py` — backend service + route
 - `modules/bionemo/notebooks/bionemo_esm_finetune.py` — Fine-tuning execution
 - `modules/bionemo/notebooks/bionemo_esm_inference.py` — Inference execution
 - `modules/bionemo/notebooks/initialize.py` — Module setup (downloads sample BLAT_ECOLX data)

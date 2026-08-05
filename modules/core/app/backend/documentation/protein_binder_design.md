@@ -59,5 +59,7 @@ Ranked designs with sequences and structures
 
 ### Key Files
 
-- `modules/core/app/utils/small_molecule_tools.py` — `hit_proteina_complexa()`, `hit_esmfold()`
+- `modules/core/app/backend/app/services/protein_binder_design.py` — `hit_proteina_complexa()`
+- `modules/core/app/backend/app/services/protein.py` — `hit_esmfold()` (optional validation step)
+- `modules/core/app/frontend/src/components/ProteinBinderDesignTab.tsx` — UI
 - `modules/small_molecule/proteina_complexa/proteina_complexa_v1/` — Model registration

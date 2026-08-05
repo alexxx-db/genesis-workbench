@@ -48,7 +48,7 @@ Protein Structure Prediction determines the 3D folded structure of a protein fro
 ### ESMFold
 
 - **Model**: Meta's ESMFold v1 deployed as a Databricks Model Serving endpoint
-- **Backend** (`modules/core/app/utils/protein_structure.py`): `hit_esmfold()` sends sequence to endpoint, receives PDB
+- **Backend** (`modules/core/app/backend/app/services/protein.py`): `hit_esmfold()` sends sequence to endpoint, receives PDB
 - **Speed**: ~1-5 seconds per sequence
 - **Registration**: `modules/large_molecule/esmfold/esmfold_v1/notebooks/01_register_esmfold.py`
 
@@ -69,7 +69,9 @@ Protein Structure Prediction determines the 3D folded structure of a protein fro
 
 ### Key Files
 
-- `modules/core/app/utils/protein_structure.py` — `hit_esmfold()`, `start_run_alphafold_job()`
+- `modules/core/app/backend/app/services/protein.py` — `hit_esmfold()`
+- `modules/core/app/backend/app/services/alphafold.py` — `start_run_alphafold_job()`
+- `modules/core/app/frontend/src/components/StructurePredictionTab.tsx` (+ `AlphaFoldPanel.tsx`) — UI, on the Large Molecule page
 - `modules/large_molecule/esmfold/esmfold_v1/` — ESMFold registration
 - `modules/large_molecule/alphafold/alphafold_v2.3.2/` — AlphaFold2 pipeline
 - `modules/large_molecule/boltz/boltz_1/` — Boltz-1 registration

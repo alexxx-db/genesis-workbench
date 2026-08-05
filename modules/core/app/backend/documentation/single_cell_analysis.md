@@ -125,10 +125,12 @@ Available databases: GO Biological Process, GO Molecular Function, GO Cellular C
 
 ### Key Files
 
-- `modules/core/app/views/single_cell_workflows/processing.py` — Processing + Results Viewer UI
-- `modules/core/app/views/single_cell_workflows/cell_type_annotation.py` — Cell Type Annotation UI
-- `modules/core/app/views/single_cell_workflows/cell_similarity.py` — Cell Similarity Search UI
-- `modules/core/app/views/single_cell_workflows/perturbation.py` — Gene Perturbation Prediction UI
+- `modules/core/app/frontend/src/components/RawProcessingTab.tsx` — Processing + Results Viewer UI
+- `modules/core/app/frontend/src/components/AnalysisTab.tsx` — Analysis tab (hosts cell-type annotation)
+- `modules/core/app/frontend/src/components/CellSimilarityTab.tsx` — Cell Similarity Search UI
+- `modules/core/app/frontend/src/components/PerturbationTab.tsx` — Gene Perturbation Prediction UI
+- `modules/core/app/frontend/src/pages/SingleCell.tsx` — page that mounts the tabs above
+- `modules/core/app/backend/app/services/{scimilarity,teddy,scgpt,single_cell_runs}.py` — backend logic for the tabs
 - `modules/single_cell/scanpy/scanpy_v0.0.1/` — Scanpy processing notebooks + gene set downloads
 - `modules/single_cell/rapidssinglecell/rapidssinglecell_v0.0.1/` — RAPIDS processing notebooks
 - `modules/single_cell/scimilarity/` — SCimilarity model registration

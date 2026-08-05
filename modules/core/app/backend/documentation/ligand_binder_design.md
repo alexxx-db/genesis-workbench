@@ -58,5 +58,7 @@ Ranked designs with sequences, structures, and docking results
 
 ### Key Files
 
-- `modules/core/app/views/small_molecule_workflows/ligand_binder_design.py` — UI
-- `modules/core/app/utils/small_molecule_tools.py` — `hit_proteina_complexa_ligand()`, `hit_esmfold()`, `hit_diffdock()`
+- `modules/core/app/frontend/src/components/LigandBinderDesignTab.tsx` — UI
+- `modules/core/app/backend/app/services/ligand_binder_design.py` — `hit_proteina_complexa_ligand()`
+- `modules/core/app/backend/app/services/protein.py` — `hit_esmfold()`
+- `modules/core/app/backend/app/services/molecular_docking.py` — `hit_diffdock()`

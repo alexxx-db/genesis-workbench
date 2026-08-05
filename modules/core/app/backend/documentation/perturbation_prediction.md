@@ -53,7 +53,8 @@ Gene Perturbation Prediction uses scGPT's transformer architecture to predict ho
 
 ### Key Files
 
-- `modules/core/app/views/single_cell_workflows/perturbation.py` — UI and endpoint call
+- `modules/core/app/frontend/src/components/PerturbationTab.tsx` — UI
+- `modules/core/app/backend/app/services/scgpt.py` — endpoint call
 - `modules/single_cell/scgpt/scgpt_v0.2.4/notebooks/03_register_scgpt_perturbation.py` — Model wrapper and registration
 
 ### Dependencies

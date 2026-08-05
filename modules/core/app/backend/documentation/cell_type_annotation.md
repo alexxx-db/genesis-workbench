@@ -41,8 +41,8 @@ Cell Type Annotation automatically identifies the cell types present in each clu
 
 ### Key Files
 
-- `modules/core/app/views/single_cell_workflows/cell_type_annotation.py` — UI
-- `modules/core/app/utils/scimilarity_tools.py` — `annotate_clusters()`
+- `modules/core/app/frontend/src/components/AnalysisTab.tsx` — UI (annotation lives inside the Analysis tab)
+- `modules/core/app/backend/app/services/scimilarity.py` — `annotate_clusters()` (TEDDY has its own `services/teddy.py:annotate_clusters()`)
 - `modules/single_cell/scimilarity/` — SCimilarity model registration
 
 ### Dependencies

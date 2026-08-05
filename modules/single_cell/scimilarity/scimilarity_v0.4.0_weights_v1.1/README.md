@@ -17,7 +17,7 @@ Cell search and annotation using [SCimilarity](https://genentech.github.io/scimi
 | `gwb_mmt_scimilarity_gene_order_endpoint` | `scimilarity_gene_order` | Returns gene ordering for dataset alignment | CPU | Small |
 | `gwb_mmt_scimilarity_get_embedding_endpoint` | `scimilarity_get_embedding` | Neural network inference — generates cell embeddings from gene expression | GPU Medium (4xA10G) | Small |
 
-Nearest-neighbor cell search now runs against a **Databricks Vector Search index** (`scimilarity_cell_index`) that is Delta-synced from `scimilarity_cells`. The app-side `search_nearest_cells` in `modules/core/app/utils/scimilarity_tools.py` queries the index directly — no per-request model serving endpoint in the loop. This matches the pattern used by the Protein Sequence Search feature.
+Nearest-neighbor cell search now runs against a **Databricks Vector Search index** (`scimilarity_cell_index`) that is Delta-synced from `scimilarity_cells`. The app-side `search_nearest_cells` in `modules/core/app/backend/app/services/scimilarity.py` queries the index directly — no per-request model serving endpoint in the loop. This matches the pattern used by the Protein Sequence Search feature.
 
 **Why GPU for the embedder endpoint?**
 `scimilarity==0.4.0` transitively pulls in `torch` + `pytorch-lightning`. GPU serving environments have torch pre-cached in the base image, so container builds are fast. CPU serving works functionally but triggers a full torch install from scratch (~slow build).

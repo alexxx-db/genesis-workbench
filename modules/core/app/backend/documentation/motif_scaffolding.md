@@ -58,4 +58,6 @@ Final scaffold designs
 
 ### Key Files
 
-- `modules/core/app/utils/small_molecule_tools.py` — `hit_proteina_complexa_ame()`, `_hit_proteinmpnn()`, `hit_esmfold()`
+- `modules/core/app/backend/app/services/motif_scaffolding.py` — `hit_proteina_complexa_ame()`, `_hit_proteinmpnn_full_redesign()`
+- `modules/core/app/backend/app/services/protein.py` — `hit_esmfold()` (optional validation step)
+- `modules/core/app/frontend/src/components/MotifScaffoldingTab.tsx` — UI

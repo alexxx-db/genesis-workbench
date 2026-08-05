@@ -60,7 +60,8 @@ DiffDock uses a diffusion generative model that:
 
 ### Key Files
 
-- `modules/core/app/utils/small_molecule_tools.py` — `hit_diffdock()`, `hit_esm_embeddings()`
+- `modules/core/app/backend/app/services/molecular_docking.py` — `hit_diffdock()` (the ESM-2 embedding step runs inline here against the `DiffDock ESM Embeddings` endpoint)
+- `modules/core/app/frontend/src/components/MolecularDockingTab.tsx` — UI
 - `modules/small_molecule/diffdock/diffdock_v1/notebooks/01_register_diffdock.py` — Model registration
 
 ### Dependencies
