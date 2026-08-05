@@ -366,7 +366,7 @@ The SHA pin is intentional. Before bumping to a newer Proteina commit (especiall
 
 ## teddy_annotation (2026-05-20) — Merck TEDDY-G 400M joint cell-type + disease annotation
 
-Added Merck's [TEDDY-G 400M](https://huggingface.co/Merck/TEDDY) (Apache 2.0) as a foundation model for single-cell biology. Workflow #1 is **joint cell-type + disease annotation** on the existing UMAP tab — TEDDY runs side-by-side with SCimilarity, both checkboxes default ON. New submodule: `modules/single_cell/teddy/teddy_g_v1`. New feature doc: [`modules/core/app/docs/single_cell_teddy_annotation.md`](modules/core/app/docs/single_cell_teddy_annotation.md).
+Added Merck's [TEDDY-G 400M](https://huggingface.co/Merck/TEDDY) (Apache 2.0) as a foundation model for single-cell biology. Workflow #1 is **joint cell-type + disease annotation** on the existing UMAP tab — TEDDY runs side-by-side with SCimilarity, both checkboxes default ON. New submodule: `modules/single_cell/teddy/teddy_g_v1`. New feature doc: [`modules/core/app/backend/documentation/cell_type_annotation.md`](modules/core/app/backend/documentation/cell_type_annotation.md).
 
 ### Why 400M and not 70M
 

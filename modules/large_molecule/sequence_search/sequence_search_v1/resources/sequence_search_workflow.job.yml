@@ -9,6 +9,16 @@ resources:
 
       tasks:
 
+        # Build gene_sequences first so the human-gene companion index below has its
+        # input. Previously only referenced in a comment, so the table never existed
+        # unless run by hand. CPU cluster (needs outbound internet to reach UniProt).
+        - task_key: ingest_gene_sequences
+          max_retries: 0
+          job_cluster_key: cpu_cluster
+          notebook_task:
+            notebook_path: ../notebooks/00_ingest_gene_sequences.py
+            source: WORKSPACE
+
         - task_key: download_sequences
           max_retries: 0
           job_cluster_key: cpu_cluster
@@ -43,14 +53,16 @@ resources:
             notebook_path: ../notebooks/04_create_vector_index.py
             source: WORKSPACE
 
-        # Human SwissProt companion index. gene_sequences is built by core's
-        # ingest_uniprot_genes.py; we embed it (same ESM-2 model as UniRef) and
-        # index it so protein search also returns human targets (e.g. PARP1).
-        # Chained after batch_embed_sequences to serialise GPU-cluster use.
+        # Human SwissProt companion index. gene_sequences is built by the
+        # ingest_gene_sequences task above; we embed it (same ESM-2 model as UniRef)
+        # and index it so protein search also returns human targets (e.g. PARP1).
+        # Chained after batch_embed_sequences to serialise GPU-cluster use, and after
+        # ingest_gene_sequences so its input table exists.
         - task_key: embed_gene_sequences
           max_retries: 0
           depends_on:
             - task_key: batch_embed_sequences
+            - task_key: ingest_gene_sequences
           job_cluster_key: multi_gpu_cluster
           notebook_task:
             notebook_path: ../notebooks/05_batch_embed_gene_sequences.py
@@ -70,6 +82,8 @@ resources:
           default: ${var.core_catalog_name}
         - name: schema
           default: ${var.core_schema_name}
+        - name: organism_id
+          default: "9606"
         - name: volume_name
           default: ${resources.volumes.sequence_search_volume.name}
         - name: user_email

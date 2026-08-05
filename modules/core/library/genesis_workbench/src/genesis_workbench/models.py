@@ -314,30 +314,48 @@ def register_batch_model(model_name: str, model_display_name: str, model_descrip
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     batch_model_id = time.time_ns()
 
+    # Upsert keyed on model_name alone (globally unique across modules). Keying on
+    # (model_name, module) would leave a stale active row behind if a model's module
+    # is ever renamed; keying on model_name updates module in place instead. Values
+    # are bound as parameters (never f-string-interpolated) so a description
+    # containing an apostrophe — e.g. "Merck's model" — can't break or inject SQL.
     query = f"""
         MERGE INTO {catalog}.{schema}.batch_models AS target
-        USING (SELECT '{model_name}' AS model_name, '{module}' AS module) AS source
-        ON target.model_name = source.model_name AND target.module = source.module
+        USING (SELECT :model_name AS model_name) AS source
+        ON target.model_name = source.model_name
         WHEN MATCHED THEN UPDATE SET
-            target.model_display_name = '{model_display_name}',
-            target.model_description = '{model_description}',
-            target.model_category = '{model_category}',
-            target.job_id = '{job_id}',
-            target.job_name = '{job_name}',
-            target.cluster_type = '{cluster_type}',
-            target.model_added_by = '{added_by}',
-            target.model_added_date = '{now}',
+            target.model_display_name = :model_display_name,
+            target.model_description = :model_description,
+            target.model_category = :model_category,
+            target.module = :module,
+            target.job_id = :job_id,
+            target.job_name = :job_name,
+            target.cluster_type = :cluster_type,
+            target.model_added_by = :added_by,
+            target.model_added_date = :now,
             target.is_active = true
         WHEN NOT MATCHED THEN INSERT
             (batch_model_id, model_name, model_display_name, model_description,
              model_category, module, job_id, job_name, cluster_type,
              model_added_by, model_added_date, is_active)
         VALUES
-            ({batch_model_id}, '{model_name}', '{model_display_name}', '{model_description}',
-             '{model_category}', '{module}', '{job_id}', '{job_name}', '{cluster_type}',
-             '{added_by}', '{now}', true)
+            (:batch_model_id, :model_name, :model_display_name, :model_description,
+             :model_category, :module, :job_id, :job_name, :cluster_type,
+             :added_by, :now, true)
     """
-    execute_non_select_query(query)
+    execute_non_select_query(query, parameters={
+        "model_name": model_name,
+        "model_display_name": model_display_name,
+        "model_description": model_description,
+        "model_category": model_category,
+        "module": module,
+        "job_id": job_id,
+        "job_name": job_name,
+        "cluster_type": cluster_type,
+        "added_by": added_by,
+        "now": now,
+        "batch_model_id": batch_model_id,
+    })
 
 
 def get_uc_model_info(model_uc_name_fq : str, model_uc_version:int) -> ModelInfo:

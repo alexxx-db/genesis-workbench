@@ -37,7 +37,7 @@ variables:
     description: The docker repo user_id
 
   bionemo_docker_token:
-    description: The docker repo token
+    description: Docker registry token — set in module.env as a secret-scope ref {{secrets/<scope>/<key>}}, never a plaintext PAT. See modules/bionemo/module.env.template.
   
   cpu_node_type:
     description: Node type for CPU vms

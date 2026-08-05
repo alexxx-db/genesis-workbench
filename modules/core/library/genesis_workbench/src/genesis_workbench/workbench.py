@@ -90,10 +90,10 @@ def execute_parameterized_inserts(param_query : str, list_of_records:list[list])
         with connection.cursor() as cursor:
             cursor.executemany(param_query, list_of_records )
 
-def execute_non_select_query(query):
+def execute_non_select_query(query, parameters: dict | None = None):
     with(db_connect()) as connection:
         with connection.cursor() as cursor:
-            cursor.execute(query)            
+            cursor.execute(query, parameters=parameters)
 
 def execute_workflow(job_id: int, params: dict) -> str:
     w = WorkspaceClient()

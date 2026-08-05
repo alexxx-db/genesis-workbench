@@ -51,5 +51,5 @@ variables:
     description: The docker repo user_id for Parabricks
 
   parabricks_docker_token:
-    description: The docker repo token for Parabricks
+    description: Docker registry token for Parabricks — set in module.env as a secret-scope ref {{secrets/<scope>/<key>}}, never a plaintext PAT. See modules/genomics/module.env.template.
 

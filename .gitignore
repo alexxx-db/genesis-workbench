@@ -34,5 +34,9 @@ local/*
 module.env.*
 application.env.*
 
+# ...but DO track the safe secret-ref templates (they contain no real credentials).
+!**/module.env.template
+!**/application.env.template
+
 # Local analysis/scratch archives (branch snapshots, exports) — never commit.
 archive/

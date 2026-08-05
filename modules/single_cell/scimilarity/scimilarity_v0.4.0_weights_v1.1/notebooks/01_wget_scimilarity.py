@@ -39,6 +39,16 @@ print("MODEL_FAMILY :", MODEL_FAMILY)
 
 # COMMAND ----------
 
+# DBTITLE 1,Ensure the cache Volume exists (self-provision; no-op if already present)
+# The volume is normally created by resources/volumes.yml at deploy time; this guard
+# means a fresh run still provisions it even if that bundle declaration is ever
+# dropped again, and it never churns an existing one. IF NOT EXISTS is idempotent, so
+# it is a no-op when the bundle already created the managed volume.
+spark.sql(f"CREATE VOLUME IF NOT EXISTS `{CATALOG}`.`{DB_SCHEMA}`.`{MODEL_FAMILY}`")
+print(f"Ensured volume {CATALOG}.{DB_SCHEMA}.{MODEL_FAMILY} exists")
+
+# COMMAND ----------
+
 # DBTITLE 1,Model File Paths
 model_path = f"/Volumes/{CATALOG}/{DB_SCHEMA}/{MODEL_FAMILY}/model/model_v1.1"
 geneOrder_path = f"/Volumes/{CATALOG}/{DB_SCHEMA}/{MODEL_FAMILY}/model/model_v1.1/gene_order.tsv"
