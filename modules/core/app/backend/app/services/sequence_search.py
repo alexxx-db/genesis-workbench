@@ -14,7 +14,7 @@ from databricks.sdk import WorkspaceClient
 
 from app.config import get_settings
 from app.services.endpoints import get_endpoint_name
-from app.services.workbench import execute_select_query
+from app.services.workbench import execute_select_query, sql_in_params
 
 logger = logging.getLogger(__name__)
 
@@ -95,14 +95,14 @@ def _fetch_human(seq_ids: list[str], catalog: str, schema: str) -> dict[str, dic
     protein name / organism / gene so the UI shows a meaningful label."""
     if not seq_ids:
         return {}
-    ids_str = ", ".join(f"'{sid}'" for sid in seq_ids)
+    in_clause, params = sql_in_params("seq", seq_ids)
     query = (
         f"SELECT accession AS seq_id, sequence, seq_length, "
         f"protein_name, organism, gene "
         f"FROM {catalog}.{schema}.{HUMAN_TABLE_SUFFIX} "
-        f"WHERE accession IN ({ids_str})"
+        f"WHERE accession IN {in_clause}"
     )
-    df = execute_select_query(query)
+    df = execute_select_query(query, parameters=params)
     out: dict[str, dict] = {}
     for _, row in df.iterrows():
         gene = str(row.get("gene", "") or "")
@@ -124,13 +124,13 @@ def _fetch_human(seq_ids: list[str], catalog: str, schema: str) -> dict[str, dic
 def _fetch(seq_ids: list[str], catalog: str, schema: str) -> dict[str, dict]:
     if not seq_ids:
         return {}
-    ids_str = ", ".join(f"'{sid}'" for sid in seq_ids)
+    in_clause, params = sql_in_params("seq", seq_ids)
     query = (
         f"SELECT seq_id, sequence, description, seq_length "
         f"FROM {catalog}.{schema}.{SEQUENCE_TABLE_SUFFIX} "
-        f"WHERE seq_id IN ({ids_str})"
+        f"WHERE seq_id IN {in_clause}"
     )
-    df = execute_select_query(query)
+    df = execute_select_query(query, parameters=params)
     return {row["seq_id"]: row for _, row in df.iterrows()}
 
 

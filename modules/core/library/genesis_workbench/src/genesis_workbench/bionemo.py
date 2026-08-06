@@ -121,7 +121,7 @@ def list_finetuned_weights(model_type: BionemoModelType) -> pd.DataFrame:
             FROM \
                 {os.environ['CORE_CATALOG_NAME']}.{os.environ['CORE_SCHEMA_NAME']}.bionemo_weights \
             WHERE \
-                model_type = '{str(model_type)}' and is_active=true"
+                model_type = :model_type and is_active=true"
     
-    result_df = execute_select_query(query)
+    result_df = execute_select_query(query, parameters={"model_type": str(model_type)})
     return result_df

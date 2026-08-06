@@ -8,6 +8,7 @@ from databricks.sdk.service.serving import ServingEndpointAccessControlRequest, 
 from databricks import sql
 
 import os
+import re
 import time
 import pandas as pd
 from datetime import datetime, timedelta
@@ -77,10 +78,10 @@ def db_connect():
             credentials_provider = credential_provider)
 
 
-def execute_select_query(query)-> pd.DataFrame:
+def execute_select_query(query, parameters: dict | None = None)-> pd.DataFrame:
     with(db_connect()) as connection:
         with connection.cursor() as cursor:
-            cursor.execute(query)
+            cursor.execute(query, parameters=parameters)
             columns = [ col_desc[0] for col_desc in cursor.description]
             result = pd.DataFrame.from_records(cursor.fetchall(),columns=columns)
             return result
@@ -94,6 +95,39 @@ def execute_non_select_query(query, parameters: dict | None = None):
     with(db_connect()) as connection:
         with connection.cursor() as cursor:
             cursor.execute(query, parameters=parameters)
+
+
+# ── SQL-injection guards ─────────────────────────────────────────────────────
+# Values are bound as query parameters (`:name` markers + a parameters dict) so
+# user/free-text input can never break out of a literal. Identifiers (catalog /
+# schema / table names) cannot be bound, so any identifier built from a
+# non-constant must be validated with `validate_sql_name` before interpolation.
+
+# Up to a three-part `catalog.schema.table` identifier of word chars only.
+_SQL_IDENT_RE = re.compile(r"^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+){0,2}$")
+
+
+def validate_sql_name(name: str) -> str:
+    """Validate a (optionally dotted) SQL identifier before it is interpolated
+    into a query. Identifiers can't be passed as bound parameters, so names
+    derived from a run id, an MLflow tag, or any other non-constant must pass
+    through here first. Returns the name unchanged; raises ValueError otherwise."""
+    if not isinstance(name, str) or not _SQL_IDENT_RE.match(name):
+        raise ValueError(f"Unsafe SQL identifier: {name!r}")
+    return name
+
+
+def sql_in_params(prefix: str, values) -> tuple[str, dict]:
+    """Build a parameterized ``IN`` list. Returns a ``(clause, params)`` pair,
+    e.g. ``("(:seq0, :seq1)", {"seq0": ..., "seq1": ...})`` so the values are
+    bound, never string-interpolated. An empty input yields ``("(NULL)", {})``
+    which matches nothing without a syntax error."""
+    vals = list(values)
+    if not vals:
+        return "(NULL)", {}
+    names = [f"{prefix}{i}" for i in range(len(vals))]
+    clause = "(" + ", ".join(f":{n}" for n in names) + ")"
+    return clause, {n: v for n, v in zip(names, vals)}
 
 def execute_workflow(job_id: int, params: dict) -> str:
     w = WorkspaceClient()
@@ -238,9 +272,9 @@ def get_user_settings(user_email: str) -> dict:
     core_catalog_name = os.environ["CORE_CATALOG_NAME"]
     core_schema_name = os.environ["CORE_SCHEMA_NAME"]
 
-    query = f"SELECT key,value FROM {core_catalog_name}.{core_schema_name}.user_settings WHERE user_email='{user_email}'"
+    query = f"SELECT key,value FROM {core_catalog_name}.{core_schema_name}.user_settings WHERE user_email = :user_email"
 
-    result_df = execute_select_query(query)
+    result_df = execute_select_query(query, parameters={"user_email": user_email})
     
     if len(result_df) > 0:
         return dict(zip(result_df['key'], result_df['value']))
@@ -252,13 +286,24 @@ def save_user_settings(user_email:str, user_settings:dict):
     core_schema_name = os.environ["CORE_SCHEMA_NAME"]
     
     print(f"Deleting existing user settings for {user_email}")
-    delete_query=f"DELETE FROM {core_catalog_name}.{core_schema_name}.user_settings WHERE user_email='{user_email}'"
-    execute_non_select_query(delete_query)
+    delete_query=f"DELETE FROM {core_catalog_name}.{core_schema_name}.user_settings WHERE user_email = :user_email"
+    execute_non_select_query(delete_query, parameters={"user_email": user_email})
 
     print(f"Inserting new settings for {user_email}")
-    insert_fields = ",".join([ f"('{user_email}','{k}','{v}')" for k,v in user_settings.items()])
-    insert_query = f"INSERT INTO {core_catalog_name}.{core_schema_name}.user_settings (user_email, key, value) VALUES {insert_fields}"
-    execute_non_select_query(insert_query)
+    # Bind every value (email + each key/value the user typed) as a parameter so
+    # a setting value containing a quote can't break or inject SQL.
+    rows, params = [], {"user_email": user_email}
+    for i, (k, v) in enumerate(user_settings.items()):
+        rows.append(f"(:user_email, :k{i}, :v{i})")
+        params[f"k{i}"] = k
+        params[f"v{i}"] = v
+    if not rows:
+        return
+    insert_query = (
+        f"INSERT INTO {core_catalog_name}.{core_schema_name}.user_settings "
+        f"(user_email, key, value) VALUES {', '.join(rows)}"
+    )
+    execute_non_select_query(insert_query, parameters=params)
 
 
 def _list_app_names() -> List[str]:

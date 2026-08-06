@@ -14,6 +14,22 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.11"
+# Runtime imports of the library. Declared as floors (>=), not exact pins: this is a
+# library consumed by several environments that pin their own exact versions — the app
+# (app/requirements.txt), the MCP app, and the register/import notebooks (which %pip
+# install their own, e.g. databricks-sql-connector==4.0.3). Exact-pinning here would
+# conflict with those; the exact pins live at the app/notebook layer per repo policy.
+mlflow = ">=2.22.0"
+numpy = ">=1.23"
+pandas = ">=1.5"
+databricks-sdk = ">=0.50.0"
+databricks-sql-connector = ">=4.0.0"
+# rdkit is imported lazily (executor.py, chem transforms only) — optional extra so the
+# base wheel stays light. Install with: pip install genesis_workbench[chem]
+rdkit = { version = ">=2023.9", optional = true }
+
+[tool.poetry.extras]
+chem = ["rdkit"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

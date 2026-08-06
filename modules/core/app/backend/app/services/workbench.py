@@ -14,6 +14,8 @@ from genesis_workbench.workbench import (
     get_workflow_job_status,
     initialize,
     save_user_settings,
+    sql_in_params,
+    validate_sql_name,
 )
 
 from app.config import get_settings
@@ -44,7 +46,8 @@ def get_app_setting(key: str) -> str | None:
     s = get_settings()
     try:
         df = execute_select_query(
-            f"SELECT value FROM {s.catalog}.{s.schema}.settings WHERE key = '{key}' LIMIT 1"
+            f"SELECT value FROM {s.catalog}.{s.schema}.settings WHERE key = :key LIMIT 1",
+            parameters={"key": key},
         )
         if df is None or df.empty:
             return None
@@ -73,4 +76,6 @@ __all__ = [
     "get_workflow_job_status",
     "initialize_lib",
     "save_user_settings",
+    "sql_in_params",
+    "validate_sql_name",
 ]
