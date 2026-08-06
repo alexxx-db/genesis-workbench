@@ -1,4 +1,14 @@
 variables: 
+  run_as_principal:
+    description: >
+      Identity that owns and runs the deployed jobs. Defaults to the deploying
+      user so demo/dev installs work with no extra setup. For production, override
+      with a runtime service principal so ownership survives off-boarding (see
+      HARDENING_CHECKLIST.md 1.1). Example in application.env:
+      run_as_principal={"service_principal_name":"<sp-application-id>"}
+    default:
+      user_name: ${var.current_user}
+
   current_user:
     description: User deploying the bundle. Can apply to service principals as well.
     default: ${workspace.current_user.userName}

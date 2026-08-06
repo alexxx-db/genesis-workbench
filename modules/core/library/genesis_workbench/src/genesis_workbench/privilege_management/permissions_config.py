@@ -3,6 +3,7 @@ Configuration file for the Genesis Workbench app permissions system.
 Defines modules and submodules that users can access in the web application.
 """
 
+import os
 from typing import List, Dict
 from dataclasses import dataclass
 
@@ -71,8 +72,16 @@ DEFAULT_GROUPS = {
     "user": ["genesis-users"],
 }
 
-DEFAULT_CATALOG = "genesis_workbench"  # TODO: Can this be parameterized from the DAB deploy? I don't think so, probably need to make sure we're instead building a workflow resource for the setup notebook and configuring the job to parameterize widgets in the notebook.
-DEFAULT_SCHEMA = "permissions"  # TODO: Can this be parameterized from the DAB deploy? I don't think so, probably need to make sure we're instead building a workflow resource for the setup notebook and configuring the job to parameterize widgets in the notebook.
+# Catalog/schema that hold the app_permissions table. Sourced from the
+# environment rather than hardcoded so a second workspace deploys with only
+# env-file changes (HARDENING_CHECKLIST.md 1.2). CORE_CATALOG_NAME /
+# CORE_SCHEMA_NAME are exported by genesis_workbench.workbench.initialize() at
+# app startup, threaded from the DAB variables core_catalog_name /
+# core_schema_name via the settings table. The setup notebook overrides both
+# through its catalog_name / schema_name widgets (DAB task parameters), so these
+# module-level values are only fallbacks for direct AppPermissionsManager() use.
+DEFAULT_CATALOG = os.environ.get("CORE_CATALOG_NAME", "")
+DEFAULT_SCHEMA = os.environ.get("PERMISSIONS_SCHEMA", os.environ.get("CORE_SCHEMA_NAME", "permissions"))
 PERMISSIONS_TABLE_NAME = "app_permissions"
 PERMISSIONS_TABLE_COMMENT = (
     "Application permissions management for Genesis Workbench modules and submodules"

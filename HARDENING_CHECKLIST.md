@@ -41,24 +41,32 @@ useful artifact: it is evidence of the gap rather than an assertion about it. Se
 ## Workstream 1 — Deploy identity & IaC (Service Principal)
 
 ### 1.1 Replace deployer identity with a dedicated deploy Service Principal
-- **Current:** Bundles run as `run_as: user_name: ${var.current_user}` — resources are owned by, and
-  jobs run as, whoever ran `deploy.sh`. Off-boarding that person or rotating them breaks ownership.
+- **Current:** Every bundle's `run_as` now reads a `run_as_principal` DAB variable (all 29
+  `databricks.yml`) instead of a hardcoded `user_name`. Its default is
+  `{user_name: ${var.current_user}}` so demo/dev deploys are unchanged, but production can point it at a
+  runtime service principal with a single `application.env` line (see [`CONFIGURATION.md`](docs/CONFIGURATION.md)).
+  The source half of this check (`hardening_check.py` 1.1) now **passes**; the live half (jobs actually
+  running as an SP) still depends on the operational steps below.
 - **Target:** A dedicated **deploy SP** owns bundle deploys; jobs `run_as` a **runtime SP**. Human
   deployers only trigger the pipeline.
-- **Work:** Create SP(s) + OAuth (M2M) credentials; set `run_as` in every module `databricks.yml`; grant
-  the SP the catalog/schema/volume/cluster-policy entitlements; update `deploy.sh`/`update.sh` auth to
-  use the SP profile.
-- **Effort:** M
+- **Work (remaining, operational):** Create SP(s) + OAuth (M2M) credentials; set
+  `run_as_principal={"service_principal_name":"<sp>"}` in `application.env`; grant the SP the
+  catalog/schema/volume/cluster-policy entitlements; update `deploy.sh`/`update.sh` auth to use the SP
+  profile.
+- **Effort:** M (in-repo parameterization done; SP provisioning + entitlements remain)
 - **Acceptance:** Full clean deploy of `core` + one module succeeds under the SP with no human in the
   ownership chain; jobs show the runtime SP as `run_as`.
 
 ### 1.2 Parameterize remaining hardcoded/workspace-specific defaults
-- **Current:** `permissions_config.py` has `DEFAULT_CATALOG = "genesis_workbench"` and `DEFAULT_SCHEMA`
-  with `# TODO: parameterize from DAB`; a grant notebook carries a workspace-specific default
-  `sql_warehouse_id`.
+- **Current (resolved in source):** `permissions_config.py` now derives `DEFAULT_CATALOG` /
+  `DEFAULT_SCHEMA` from the environment (`CORE_CATALOG_NAME` / `PERMISSIONS_SCHEMA` /
+  `CORE_SCHEMA_NAME`) instead of the former `"genesis_workbench"` / `"permissions"` literals; the
+  setup notebook already parameterizes catalog/schema via DAB task widgets. `hardening_check.py` 1.2
+  now **passes** (no known workspace-specific literals in source).
 - **Target:** All catalog/schema/warehouse/prefix values flow from env files → DAB variables → app
   config; no hardcoded IDs in source.
-- **Work:** Thread the values through `variables.yml` and app env bindings; remove literal defaults.
+- **Work:** Done in source. Remaining: confirm on a second-workspace deploy that only env-file changes
+  are needed (operational verification).
 - **Effort:** S
 - **Acceptance:** Grep for known literals returns none; deploy to a second workspace with only env-file
   changes.
