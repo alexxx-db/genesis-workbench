@@ -161,6 +161,18 @@ core_schema_name=Schema to be used by Genesis Workbench
 sql_warehouse_id=ID of the SQL Warehouse that was created
 ```
 
+**Production run-as identity (optional, recommended for non-demo installs).** By
+default every bundle runs jobs as the deploying user (`run_as_principal` defaults
+to `user_name: ${var.current_user}`), which is fine for a demo but ties resource
+ownership to a person. To run jobs as a dedicated **runtime service principal** so
+ownership survives off-boarding (HARDENING_CHECKLIST.md 1.1), add a single line to
+`application.env` with the SP's application id as a JSON object (single key, no
+spaces — it is joined into `--var`):
+
+```
+run_as_principal={"service_principal_name":"<sp-application-id>"}
+```
+
 ##### Module configurations
 **For the `core` module, create `module.env` file with the following fields in the `module/core` folder**
 ```

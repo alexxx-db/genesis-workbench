@@ -20,8 +20,7 @@ targets:
     permissions:
       - user_name: ${var.current_user}
         level: CAN_MANAGE
-    run_as:
-      user_name: ${var.current_user} #sp name should be used instead later.
+    run_as: ${var.run_as_principal}
 
   # prod:
   #   mode: production

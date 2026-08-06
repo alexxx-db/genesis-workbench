@@ -31,6 +31,7 @@ override an earlier key.
 | `core_catalog_name` | Unity Catalog catalog GWB uses (existing or created at deploy) |
 | `core_schema_name` | Schema GWB uses — **must be exclusive to GWB** (created if absent) |
 | `sql_warehouse_id` | ID of a SQL Warehouse for the app (a 2X-Small is sufficient) |
+| `run_as_principal` | *(optional)* Identity that owns/runs deployed jobs. Defaults to the deploying user. Set to a runtime service principal for production — see note below. |
 
 ```
 workspace_url=https://adb-xxxx.azuredatabricks.net
@@ -38,6 +39,20 @@ core_catalog_name=genesis_workbench
 core_schema_name=genesis
 sql_warehouse_id=abcd1234efgh5678
 ```
+
+> **`run_as_principal` (production run-as identity).** Every bundle's `run_as` reads the
+> `run_as_principal` DAB variable, which defaults to `{user_name: ${var.current_user}}` so
+> demo/dev installs run as the deployer with no extra setup. For production, run jobs as a
+> dedicated **runtime service principal** so ownership survives off-boarding
+> ([`HARDENING_CHECKLIST.md`](../HARDENING_CHECKLIST.md) §1.1) by adding one line — a single-key
+> JSON object, no spaces, since it is folded into `--var`:
+>
+> ```
+> run_as_principal={"service_principal_name":"<sp-application-id>"}
+> ```
+>
+> The deploy service principal must be able to act as that runtime SP, and the runtime SP needs the
+> catalog/schema/volume/cluster entitlements the jobs use.
 
 ---
 

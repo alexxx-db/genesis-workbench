@@ -16,8 +16,7 @@ targets:
     permissions:
       - user_name: ${var.current_user}
         level: CAN_MANAGE
-    run_as:
-      user_name: ${var.current_user}
+    run_as: ${var.run_as_principal}
     resources:
       jobs:
         variant_annotation_initial_setup_job:
@@ -40,8 +39,7 @@ targets:
     permissions:
       - user_name: ${var.current_user}
         level: CAN_MANAGE
-    run_as:
-      user_name: ${var.current_user}
+    run_as: ${var.run_as_principal}
     resources:
       jobs:
         variant_annotation_initial_setup_job:
@@ -64,8 +62,7 @@ targets:
     permissions:
       - user_name: ${var.current_user}
         level: CAN_MANAGE
-    run_as:
-      user_name: ${var.current_user}
+    run_as: ${var.run_as_principal}
     resources:
       jobs:
         variant_annotation_initial_setup_job:
