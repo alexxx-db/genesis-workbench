@@ -20,7 +20,7 @@ from databricks.sdk import WorkspaceClient
 
 from app.config import get_settings
 from app.services.endpoints import get_endpoint_name as _endpoint_for_display
-from app.services.workbench import execute_select_query
+from app.services.workbench import execute_select_query, sql_in_params
 
 logger = logging.getLogger(__name__)
 
@@ -138,10 +138,11 @@ def embed_cells(
 def _fetch_neighbor_metadata(cell_ids: list, catalog: str, schema: str) -> pd.DataFrame:
     if not cell_ids:
         return pd.DataFrame()
-    ids_str = ", ".join(f"'{cid}'" for cid in cell_ids)
+    in_clause, params = sql_in_params("cid", cell_ids)
     df = execute_select_query(
         f"SELECT cell_id, cell_type, disease, tissue, tissue_general, dataset_id "
-        f"FROM {catalog}.{schema}.{TEDDY_CELLS_TABLE} WHERE cell_id IN ({ids_str})"
+        f"FROM {catalog}.{schema}.{TEDDY_CELLS_TABLE} WHERE cell_id IN {in_clause}",
+        parameters=params,
     )
     if not df.empty and "cell_id" in df.columns:
         df = df.set_index("cell_id").reindex(cell_ids).reset_index()
@@ -190,10 +191,11 @@ def _fetch_labels_by_id(
     uniq = list(dict.fromkeys(str(c) for c in cell_ids))
     for j in range(0, len(uniq), 1000):
         chunk = uniq[j : j + 1000]
-        ids_str = ", ".join(f"'{c}'" for c in chunk)
+        in_clause, params = sql_in_params("cid", chunk)
         df = execute_select_query(
             f"SELECT cell_id, cell_type, disease "
-            f"FROM {catalog}.{schema}.{TEDDY_CELLS_TABLE} WHERE cell_id IN ({ids_str})"
+            f"FROM {catalog}.{schema}.{TEDDY_CELLS_TABLE} WHERE cell_id IN {in_clause}",
+            parameters=params,
         )
         if not df.empty and "cell_id" in df.columns:
             for _, r in df.iterrows():

@@ -27,13 +27,15 @@ def resolve_gene(gene: str) -> dict | None:
         return None
     catalog = os.environ["CORE_CATALOG_NAME"]
     schema = os.environ["CORE_SCHEMA_NAME"]
+    # g is already allow-listed by _GENE_RE above; bind it as a parameter too so
+    # the query never string-interpolates user input (defense in depth).
     query = (
         f"SELECT gene, accession, protein_name, organism, sequence, seq_length "
         f"FROM {catalog}.{schema}.{GENE_TABLE} "
-        f"WHERE upper(gene) = upper('{g}') "
+        f"WHERE upper(gene) = upper(:gene) "
         f"ORDER BY seq_length DESC LIMIT 1"
     )
-    df = execute_select_query(query)
+    df = execute_select_query(query, parameters={"gene": g})
     if df is None or df.empty:
         return None
     r = df.iloc[0]

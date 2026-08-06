@@ -19,7 +19,7 @@ from genesis_workbench.workbench import UserInfo, execute_workflow
 from mlflow.tracking import MlflowClient
 
 from app.services.databricks_links import job_run_url
-from app.services.workbench import execute_select_query, get_job_id
+from app.services.workbench import execute_select_query, get_job_id, validate_sql_name
 
 logger = logging.getLogger(__name__)
 
@@ -305,6 +305,13 @@ def pull_gwas_results(run_id: str) -> pd.DataFrame:
     schema = os.environ["CORE_SCHEMA_NAME"]
     table = f"gwas_results_{run_id.replace('-', '_')}"
     fq = f"{catalog}.{schema}.{table}"
+    # `fq` is a table identifier (can't be a bound parameter) built from run_id —
+    # validate it before it goes into DESCRIBE/FROM below.
+    try:
+        validate_sql_name(fq)
+    except ValueError:
+        logger.info("gwas results table name %r is not a valid identifier", fq)
+        return pd.DataFrame()
     try:
         execute_select_query(f"DESCRIBE {fq}")
     except Exception as e:
@@ -471,6 +478,9 @@ def pull_annotation_results(run_id: str, run_name: str = "") -> pd.DataFrame:
         suffix = f"{safe}_{(run_id or 'norun')[:8]}"
         table = f"{catalog}.{schema}.variant_annotation_pathogenic__{suffix}"
 
+    # `table` is an identifier (from an MLflow tag/param or reconstructed above),
+    # not a bindable value — validate before it goes into DESCRIBE/FROM.
+    validate_sql_name(table)
     try:
         cols_df = execute_select_query(f"DESCRIBE {table}")
         available_cols = cols_df["col_name"].tolist() if "col_name" in cols_df.columns else []

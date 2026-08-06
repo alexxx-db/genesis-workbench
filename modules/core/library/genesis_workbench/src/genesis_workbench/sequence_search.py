@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from databricks.sdk import WorkspaceClient
 
-from genesis_workbench.workbench import execute_select_query
+from genesis_workbench.workbench import execute_select_query, sql_in_params
 
 logger = logging.getLogger(__name__)
 
@@ -83,14 +83,14 @@ def _fetch_sequences(seq_ids: List[str], catalog: str, schema: str) -> dict:
     if not seq_ids:
         return {}
 
-    # Build IN clause with quoted IDs
-    ids_str = ", ".join(f"'{sid}'" for sid in seq_ids)
+    # Bind the IDs as parameters instead of string-interpolating them.
+    in_clause, params = sql_in_params("seq", seq_ids)
     query = f"""
         SELECT seq_id, sequence, description, seq_length
         FROM {catalog}.{schema}.{SEQUENCE_TABLE_SUFFIX}
-        WHERE seq_id IN ({ids_str})
+        WHERE seq_id IN {in_clause}
     """
-    df = execute_select_query(query)
+    df = execute_select_query(query, parameters=params)
     return {row["seq_id"]: row for _, row in df.iterrows()}
 
 

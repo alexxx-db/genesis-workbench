@@ -15,7 +15,7 @@ from databricks.sdk import WorkspaceClient
 
 from app.config import get_settings
 from app.services.endpoints import get_endpoint_name as _endpoint_for_display
-from app.services.workbench import execute_select_query
+from app.services.workbench import execute_select_query, sql_in_params
 
 logger = logging.getLogger(__name__)
 
@@ -119,13 +119,13 @@ def _fetch_predictions_by_id(cell_ids: list[str], catalog: str, schema: str) -> 
     uniq = list(dict.fromkeys(str(c) for c in cell_ids))
     for j in range(0, len(uniq), 1000):
         chunk = uniq[j : j + 1000]
-        ids_str = ", ".join(f"'{c}'" for c in chunk)
+        in_clause, params = sql_in_params("cid", chunk)
         query = (
             f"SELECT cell_id, prediction "
             f"FROM {catalog}.{schema}.{SCIMILARITY_CELLS_TABLE} "
-            f"WHERE cell_id IN ({ids_str})"
+            f"WHERE cell_id IN {in_clause}"
         )
-        df = execute_select_query(query)
+        df = execute_select_query(query, parameters=params)
         if not df.empty and "cell_id" in df.columns and "prediction" in df.columns:
             for cid, pred in zip(df["cell_id"], df["prediction"]):
                 if pred is not None:
@@ -136,13 +136,13 @@ def _fetch_predictions_by_id(cell_ids: list[str], catalog: str, schema: str) -> 
 def _fetch_cell_metadata(cell_ids: list[str], catalog: str, schema: str) -> pd.DataFrame:
     if not cell_ids:
         return pd.DataFrame()
-    ids_str = ", ".join(f"'{cid}'" for cid in cell_ids)
+    in_clause, params = sql_in_params("cid", cell_ids)
     query = (
         f"SELECT cell_id, prediction, disease, tissue, study "
         f"FROM {catalog}.{schema}.{SCIMILARITY_CELLS_TABLE} "
-        f"WHERE cell_id IN ({ids_str})"
+        f"WHERE cell_id IN {in_clause}"
     )
-    df = execute_select_query(query)
+    df = execute_select_query(query, parameters=params)
     if not df.empty and "cell_id" in df.columns:
         df = df.set_index("cell_id").reindex(cell_ids).reset_index()
     return df

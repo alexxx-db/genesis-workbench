@@ -34,10 +34,10 @@ def gene_from_sequence(sequence: str) -> str | None:
     catalog, schema = _catalog_schema()
     q = (
         f"SELECT gene FROM {catalog}.{schema}.gene_sequences "
-        f"WHERE sequence = '{seq}' ORDER BY seq_length DESC LIMIT 1"
+        f"WHERE sequence = :seq ORDER BY seq_length DESC LIMIT 1"
     )
     try:
-        df = execute_select_query(q)
+        df = execute_select_query(q, parameters={"seq": seq})
     except Exception as e:
         logger.warning("gene_from_sequence failed: %s", e)
         return None
@@ -61,12 +61,12 @@ def seed_motifs(gene: str | None = None, sequence: str | None = None, limit: int
         f"SELECT murcko_scaffold, count(*) AS n, max(pchembl) AS best, "
         f"min(binder_smiles) AS example "
         f"FROM {catalog}.{schema}.target_binders "
-        f"WHERE upper(gene) = upper('{g}') "
+        f"WHERE upper(gene) = upper(:gene) "
         f"AND murcko_scaffold IS NOT NULL AND length(murcko_scaffold) > 0 "
         f"GROUP BY murcko_scaffold ORDER BY n DESC, best DESC LIMIT {int(limit)}"
     )
     try:
-        df = execute_select_query(q)
+        df = execute_select_query(q, parameters={"gene": g})
     except Exception as e:
         # target_binders may not be built yet — degrade gracefully.
         logger.warning("seed_motifs lookup failed: %s", e)

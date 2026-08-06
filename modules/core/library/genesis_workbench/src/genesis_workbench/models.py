@@ -32,7 +32,8 @@ from .workbench import (UserInfo,
                          execute_select_query, 
                          execute_non_select_query,
                          execute_parameterized_inserts,
-                         execute_workflow)
+                         execute_workflow,
+                         validate_sql_name)
 from .adapters import BaseAdapter, GWBModel
 
 
@@ -160,10 +161,10 @@ def get_available_models(model_category : ModelCategory) -> pd.DataFrame:
             FROM \
                 {os.environ['CORE_CATALOG_NAME']}.{os.environ['CORE_SCHEMA_NAME']}.models \
             WHERE \
-                model_category = '{str(model_category)}' AND is_active=true \
+                model_category = :model_category AND is_active=true \
             ORDER BY model_id DESC "
     
-    result_df = execute_select_query(query)
+    result_df = execute_select_query(query, parameters={"model_category": str(model_category)})
     return result_df
 
 # Per-process cache for endpoint-name lookups. App restarts on each deploy, so
@@ -209,11 +210,13 @@ def get_endpoint_name_for_uc_model(short_name: str) -> str:
         f"SELECT model_endpoint_name "
         f"FROM {catalog}.{schema}.model_deployments md "
         f"INNER JOIN {catalog}.{schema}.models m ON md.model_id = m.model_id "
-        f"WHERE (m.model_uc_name = '{short_name}' OR m.model_uc_name LIKE '%.{short_name}') "
+        f"WHERE (m.model_uc_name = :short_name OR m.model_uc_name LIKE :short_like) "
         f"AND md.is_active = true "
         f"ORDER BY md.deployment_id DESC LIMIT 1"
     )
-    df = execute_select_query(query)
+    df = execute_select_query(
+        query, parameters={"short_name": short_name, "short_like": f"%.{short_name}"}
+    )
     if df.empty:
         raise RuntimeError(
             f"No active deployment found for model '{short_name}' in "
@@ -234,10 +237,10 @@ def get_deployed_models(model_category : ModelCategory)-> pd.DataFrame:
             INNER JOIN {os.environ['CORE_CATALOG_NAME']}.{os.environ['CORE_SCHEMA_NAME']}.models ON \
                 models.model_id = model_deployments.model_id \
             WHERE \
-                model_category = '{str(model_category)}' and model_deployments.is_active=true \
+                model_category = :model_category and model_deployments.is_active=true \
             ORDER BY deployment_id DESC "
     
-    result_df = execute_select_query(query)
+    result_df = execute_select_query(query, parameters={"model_category": str(model_category)})
     return result_df
 
 def get_batch_models(model_category: str) -> pd.DataFrame:
@@ -245,10 +248,10 @@ def get_batch_models(model_category: str) -> pd.DataFrame:
     query = (
         f"SELECT model_display_name, model_description, job_name, cluster_type "
         f"FROM {os.environ['CORE_CATALOG_NAME']}.{os.environ['CORE_SCHEMA_NAME']}.batch_models "
-        f"WHERE model_category = '{model_category}' AND is_active = true "
+        f"WHERE model_category = :model_category AND is_active = true "
         f"ORDER BY model_display_name"
     )
-    return execute_select_query(query)
+    return execute_select_query(query, parameters={"model_category": model_category})
 
 
 def _sql_val(val):
@@ -370,9 +373,9 @@ def get_gwb_model_info(model_id:int)-> GWBModelInfo:
 
     query = f"SELECT * FROM \
                 {os.environ['CORE_CATALOG_NAME']}.{os.environ['CORE_SCHEMA_NAME']}.models \
-            WHERE model_id = {model_id} "
+            WHERE model_id = :model_id "
         
-    result_df = execute_select_query(query)
+    result_df = execute_select_query(query, parameters={"model_id": int(model_id)})
 
     model_info = result_df.apply(lambda row: GWBModelInfo(**row), axis=1).tolist()[0]
     return model_info
@@ -382,9 +385,9 @@ def get_gwb_model_deployment_info(deployment_id:int)-> ModelDeploymentInfo:
 
     query = f"SELECT * FROM \
                 {os.environ['CORE_CATALOG_NAME']}.{os.environ['CORE_SCHEMA_NAME']}.model_deployments \
-            WHERE deployment_id = {deployment_id} "
+            WHERE deployment_id = :deployment_id "
         
-    result_df = execute_select_query(query)
+    result_df = execute_select_query(query, parameters={"deployment_id": int(deployment_id)})
 
     model_deployment_info = result_df.apply(lambda row: ModelDeploymentInfo(**row), axis=1).tolist()[0]
     return model_deployment_info
@@ -438,7 +441,8 @@ def import_model_from_uc(user_email : str,
     catalog = os.environ['CORE_CATALOG_NAME']
     schema = os.environ['CORE_SCHEMA_NAME']
     result_df = execute_select_query(
-        f"SELECT model_id FROM {catalog}.{schema}.models WHERE model_uc_name = '{model_uc_name}'"
+        f"SELECT model_id FROM {catalog}.{schema}.models WHERE model_uc_name = :model_uc_name",
+        parameters={"model_uc_name": model_uc_name},
     )
     return int(result_df.iloc[0]['model_id'])
 
@@ -581,14 +585,21 @@ def delete_endpoint(core_catalog:str, core_schema:str, deployment_id:str):
     inf_table_name = f"{endpoint_name}_serving_payload"
     print(f"⏩️ Archiving the inference table {inf_table_name}")
     try:
+        # Identifiers can't be bound as parameters; validate the parts before
+        # they go into the DDL below (endpoint_name comes from the DB row).
+        validate_sql_name(core_catalog)
+        validate_sql_name(core_schema)
+        validate_sql_name(inf_table_name)
         table_exists = execute_select_query(
             f"SELECT 1 FROM {core_catalog}.information_schema.tables "
-            f"WHERE table_schema = '{core_schema}' AND table_name = '{inf_table_name}'"
+            f"WHERE table_schema = :schema AND table_name = :table_name",
+            parameters={"schema": core_schema, "table_name": inf_table_name},
         )
         if not table_exists.empty:
+            bkup_suffix = datetime.now().strftime('%Y%m%d%H%M%S')
             execute_non_select_query(f"""
                 ALTER TABLE {core_catalog}.{core_schema}.{inf_table_name}
-                RENAME TO {core_catalog}.{core_schema}.{inf_table_name}_bkup_{datetime.now().strftime('%Y%m%d%H%M%S')}
+                RENAME TO {core_catalog}.{core_schema}.{inf_table_name}_bkup_{bkup_suffix}
             """)
         else:
             print(f"  Inference table {inf_table_name} does not exist, skipping archive")
@@ -598,13 +609,16 @@ def delete_endpoint(core_catalog:str, core_schema:str, deployment_id:str):
     print(" ")
 
     print(f"⏩️ Deactivating the deployment {deployment_id}")
-    execute_non_select_query(f"""
+    execute_non_select_query(
+        f"""
         UPDATE {core_catalog}.{core_schema}.model_deployments SET 
           is_active = 'false',
           deactivated_timestamp = current_timestamp()
 
-        WHERE deployment_id = {deployment_id}
-    """)
+        WHERE deployment_id = :deployment_id
+    """,
+        parameters={"deployment_id": int(deployment_id)},
+    )
 
     print(" ")
 
@@ -614,9 +628,12 @@ def delete_endpoint(core_catalog:str, core_schema:str, deployment_id:str):
       deployed_endpoint_ids_arr = deployed_endpoint_ids.split(",")
       new_deployed_endpoint_ids = ",".join([x for x in deployed_endpoint_ids_arr if x != deployment_id])
 
-      execute_non_select_query(f"""
+      execute_non_select_query(
+          f"""
           UPDATE {core_catalog}.{core_schema}.models SET 
-            deployment_ids = '{new_deployed_endpoint_ids}'
+            deployment_ids = :deployment_ids
 
-          WHERE model_id = {model_id}
-    """)
+          WHERE model_id = :model_id
+    """,
+          parameters={"deployment_ids": new_deployed_endpoint_ids, "model_id": int(model_id)},
+      )
