@@ -79,10 +79,26 @@ wheel, or the deployed app will import the stale cached version.
 - [ ] Serving payloads use `inputs=` / `dataframe_records`, never `dataframe_split=`.
 - [ ] Verified end-to-end on a real workspace; note the verification in the CHANGELOG entry.
 
-## CI (target state)
+## Continuous integration
 
-There is no CI pipeline in the repo today — quality control is manual "verified on ci-demo" runs recorded
-in the CHANGELOG. The [hardening checklist](HARDENING_CHECKLIST.md) §4 scopes the CI to add: lint + wheel
-unit tests + `bundle validate` across all cloud targets on every PR, a nightly smoke-deploy, and a
-version-bump guard for the wheel. Until that lands, run `databricks bundle validate` locally and complete
-the checklist above by hand.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and PR. None of the default
+gates need a workspace, so they run on forks and can all be reproduced locally before you push:
+
+| Gate | Command | What it catches |
+|---|---|---|
+| Wheel version pin | `python scripts/check_wheel_version.py` | app/mcp `requirements.txt` wheel pin drifting from `pyproject.toml` (the stale-wheel import bug) |
+| Bundle YAML | `python scripts/check_bundle_yaml.py` | a malformed `databricks.yml` / `variables.yml` / `resources/*.yml` before a live deploy |
+| Python syntax | `python scripts/check_python_syntax.py` | syntax errors in the backends + library + scripts (Databricks notebooks skipped) |
+| Source hardening | `python scripts/hardening_check.py --source-only` | `run_as` regressing to a human, hardcoded workspace literals, a broad MCP grant |
+| Unit tests | `pytest -q modules/core/library/genesis_workbench/tests` | library capability/executor/transform/param-contract regressions |
+| Frontend build | `cd modules/core/app/frontend && npm ci && npm run build` | a React/Vite/TypeScript break that would fail the app deploy |
+
+`bundle validate` across cloud targets is a separate job that is **off by default** because it needs
+workspace credentials. To turn it on for a repo, set the `ENABLE_BUNDLE_VALIDATE=true` and
+`BUNDLE_VALIDATE_TARGET=dev_aws|dev_azure|dev_gcp` repo *variables* and the `DATABRICKS_HOST` +
+(`DATABRICKS_TOKEN` or `DATABRICKS_CLIENT_ID`/`DATABRICKS_CLIENT_SECRET`) *secrets*. Locally, always run
+`databricks bundle validate` for the bundle(s) you touched, per the checklist above.
+
+Still to come (see [hardening checklist](HARDENING_CHECKLIST.md) §4.1–4.3): a real style linter (ruff), a
+nightly smoke-deploy, a change-aware guard that fails a wheel-source PR without a version bump, and tagged
+releases.

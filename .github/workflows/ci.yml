@@ -1,0 +1,107 @@
+# Genesis Workbench — continuous integration.
+#
+# Runs the checks that need no live workspace on every push/PR, so regressions
+# are caught before a deploy rather than on the customer's cluster. Maps onto
+# HARDENING_CHECKLIST.md workstream 4 (CI/CD): 4.1 (a pipeline exists) and 4.3
+# (the app wheel pin can't drift from the library version).
+#
+# Three jobs:
+#   checks    — fast, dependency-light gates + the wheel unit tests (always on)
+#   frontend  — the React/Vite app must build (always on)
+#   bundle-validate — `databricks bundle validate`, OFF by default because it
+#                     needs workspace credentials; opt in per repo (see below).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Python — gates, hardening, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Cheap, dependency-light gates run first so a version-pin drift or a bad
+      # YAML fails in seconds, before the heavier wheel build below.
+      - name: Install gate dependencies
+        run: python -m pip install --upgrade pip pyyaml
+
+      - name: Wheel version consistency (checklist 4.3)
+        run: python scripts/check_wheel_version.py
+
+      - name: Bundle YAML parses
+        run: python scripts/check_bundle_yaml.py
+
+      - name: Python syntax (backends + library + scripts)
+        run: python scripts/check_python_syntax.py
+
+      - name: Source hardening checks (checklist 1.1 / 1.2 / 2.2)
+        run: python scripts/hardening_check.py --source-only
+
+      # The library declares its runtime deps (pyproject.toml), so installing the
+      # package pulls everything the tests import — including the [chem] extra
+      # (rdkit) used by the transform tests.
+      - name: Install library + test tools
+        run: pip install "./modules/core/library/genesis_workbench[chem]" pytest
+
+      - name: Unit tests
+        run: pytest -q modules/core/library/genesis_workbench/tests
+
+  frontend:
+    name: Frontend — build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: modules/core/app/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: modules/core/app/frontend/package-lock.json
+
+      - name: Install (clean, lockfile-exact)
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+  bundle-validate:
+    name: Bundle — databricks bundle validate (opt-in)
+    runs-on: ubuntu-latest
+    # OFF unless the repo sets the variable, because `bundle validate` needs
+    # workspace auth + the module's env vars. To enable for a customer's repo:
+    #   1. Settings → Variables:  ENABLE_BUNDLE_VALIDATE = true
+    #                             BUNDLE_VALIDATE_TARGET = dev_aws | dev_azure | dev_gcp
+    #   2. Settings → Secrets:    DATABRICKS_HOST, and either DATABRICKS_TOKEN or
+    #                             DATABRICKS_CLIENT_ID + DATABRICKS_CLIENT_SECRET (SP OAuth)
+    if: ${{ vars.ENABLE_BUNDLE_VALIDATE == 'true' }}
+    defaults:
+      run:
+        working-directory: modules/core
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@main
+      - name: Validate core bundle
+        run: databricks bundle validate --target "${{ vars.BUNDLE_VALIDATE_TARGET }}"
