@@ -30,6 +30,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so the version-bump gate can diff against the PR base.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -42,6 +45,10 @@ jobs:
 
       - name: Wheel version consistency (checklist 4.3)
         run: python scripts/check_wheel_version.py
+
+      - name: Wheel changed ⇒ version bumped (checklist 4.3)
+        if: github.event_name == 'pull_request'
+        run: python scripts/check_wheel_version.py --require-bump "origin/${{ github.base_ref }}"
 
       - name: Bundle YAML parses
         run: python scripts/check_bundle_yaml.py

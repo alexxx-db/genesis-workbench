@@ -52,6 +52,8 @@ resources:
           default: ${var.app_name}
         - name: databricks_app_names
           default: ${var.app_names}
+        - name: enable_inference_tables
+          default: ${var.enable_inference_tables}
 
       tags: ${var.common_resource_tags}
 

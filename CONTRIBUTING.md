@@ -87,6 +87,7 @@ gates need a workspace, so they run on forks and can all be reproduced locally b
 | Gate | Command | What it catches |
 |---|---|---|
 | Wheel version pin | `python scripts/check_wheel_version.py` | app/mcp `requirements.txt` wheel pin drifting from `pyproject.toml` (the stale-wheel import bug) |
+| Wheel version bump (PRs) | `python scripts/check_wheel_version.py --require-bump origin/main` | changing wheel `src/**` without bumping the version — works on a dirty tree before you commit |
 | Bundle YAML | `python scripts/check_bundle_yaml.py` | a malformed `databricks.yml` / `variables.yml` / `resources/*.yml` before a live deploy |
 | Python syntax | `python scripts/check_python_syntax.py` | syntax errors in the backends + library + scripts (Databricks notebooks skipped) |
 | Source hardening | `python scripts/hardening_check.py --source-only` | `run_as` regressing to a human, hardcoded workspace literals, a broad MCP grant |
@@ -100,5 +101,4 @@ workspace credentials. To turn it on for a repo, set the `ENABLE_BUNDLE_VALIDATE
 `databricks bundle validate` for the bundle(s) you touched, per the checklist above.
 
 Still to come (see [hardening checklist](HARDENING_CHECKLIST.md) §4.1–4.3): a real style linter (ruff), a
-nightly smoke-deploy, a change-aware guard that fails a wheel-source PR without a version bump, and tagged
-releases.
+nightly smoke-deploy, and tagged releases.

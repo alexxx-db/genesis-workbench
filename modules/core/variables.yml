@@ -75,6 +75,18 @@ variables:
     description: Colon-separated list of databricks app names that should receive endpoint/job/volume grants. Defaults to BOTH the UI app and the sibling MCP app so every per-deploy grant (deploy_model → set_app_permissions_for_endpoint, reading this via DATABRICKS_APP_NAMES) covers both SPs. Single-app installs that never deploy the MCP app are safe — the grant helpers try/except-skip an app that doesn't exist. Colon (not comma) because `databricks bundle --var foo=a,bar=b` already uses commas as its own separator.
     default: ${var.app_name}:${var.mcp_app_name}
 
+  enable_inference_tables:
+    description: >
+      Enable AI Gateway inference tables (request/response payload capture to
+      Unity Catalog) on every endpoint the deploy_model job creates or updates
+      (HARDENING_CHECKLIST.md 5.1). Capture lands in
+      <core_catalog>.<core_schema>.<endpoint_name>_serving_payload — the same
+      table delete_endpoint() already archives. On by default; set "false" in
+      application.env only if payload retention is not yet approved. Capture
+      failures never fail a deploy (best-effort); back-fill existing endpoints
+      with scripts/backfill_inference_tables.py.
+    default: "true"
+
   llm_endpoint_name:
     description: Name of the LLM serving endpoint (Claude Sonnet) used by the home page assistant
     default: databricks-claude-sonnet-4-6
