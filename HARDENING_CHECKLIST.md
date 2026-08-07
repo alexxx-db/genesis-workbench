@@ -153,6 +153,15 @@ useful artifact: it is evidence of the gap rather than an assertion about it. Se
   `bundle validate --target prod_{aws,azure,gcp}`; gate merges.
 - **Effort:** M
 - **Acceptance:** PR that breaks a bundle or a unit test is blocked by CI.
+- **Status (in-repo done):** `.github/workflows/ci.yml` added. On every push/PR it runs, with no
+  workspace needed: the source hardening checks (`scripts/hardening_check.py --source-only`), the wheel
+  version guard (`scripts/check_wheel_version.py`, 4.3), a bundle-YAML parse gate over all 135 bundle files
+  (`scripts/check_bundle_yaml.py`), a notebook-aware Python syntax gate on the backends + library + scripts
+  (`scripts/check_python_syntax.py`), the wheel unit tests, and the React/Vite frontend build. **Remaining
+  (operational):** the `bundle-validate` job is present but off by default — enable it per repo (set the
+  `ENABLE_BUNDLE_VALIDATE` / `BUNDLE_VALIDATE_TARGET` variables and the `DATABRICKS_*` secrets) to validate
+  bundles against `prod_{aws,azure,gcp}`; and replace the syntax/build gate with a style linter (ruff) once
+  the tree is clean. See CONTRIBUTING.md → *Continuous integration*.
 
 ### 4.2 Expand automated test coverage
 - **Current:** Only ~5 wheel unit tests (capabilities/executor). No integration/smoke tests for
@@ -173,6 +182,11 @@ useful artifact: it is evidence of the gap rather than an assertion about it. Se
 - **Work:** Add the version-guard check and release tagging to CI.
 - **Effort:** S
 - **Acceptance:** Un-bumped wheel change fails CI; releases are tagged.
+- **Status (in-repo done):** `scripts/check_wheel_version.py` runs in CI and fails the build if the wheel
+  filenames pinned in `app/requirements.txt` / `mcp_app/requirements.txt` drift from the library's
+  `pyproject.toml` version — i.e. it catches exactly the documented stale-wheel import bug. **Remaining:**
+  a change-aware guard that fails a PR touching `library/.../src/**` *without* a version bump, and tagged
+  releases (git tag + changelog gate) on merge to `main`.
 
 ---
 
