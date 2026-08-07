@@ -52,6 +52,7 @@ dbutils.widgets.text("deploy_user", "a@b.com", "User Id")
 dbutils.widgets.text("dev_user_prefix", "abc", "Prefix for resources")
 dbutils.widgets.text("databricks_app_name", "dev-scn-genesis-workbench", "UI Application name (legacy single)")
 dbutils.widgets.text("databricks_app_names", "", "UI Application names (comma-separated, multi-app)")
+dbutils.widgets.text("enable_inference_tables", "true", "Enable AI Gateway inference tables")
 
 catalog = dbutils.widgets.get("catalog")
 schema = dbutils.widgets.get("schema")
@@ -96,6 +97,8 @@ deploy_user = dbutils.widgets.get("deploy_user")
 dev_user_prefix = dbutils.widgets.get("dev_user_prefix")
 databricks_app_name = dbutils.widgets.get("databricks_app_name")
 databricks_app_names = dbutils.widgets.get("databricks_app_names") or databricks_app_name
+# Widgets are strings; same falsy spellings as the library's env-var toggle.
+enable_inference_tables = dbutils.widgets.get("enable_inference_tables").strip().lower() not in ("false", "0", "no", "off")
 
 # Normalise to comma-separated (the lib expects ','). We accept ':' too because
 # `databricks bundle --var foo=a,bar=b` uses ',' as its own separator and
@@ -281,7 +284,8 @@ if result_df.count() > 0:
                                          model_version=model_uc_version, 
                                          workload_type=workload_type, 
                                          workload_size=workload_size,
-                                         creating_user_email=deploy_user)
+                                         creating_user_email=deploy_user,
+                                         enable_inference_tables=enable_inference_tables)
    model_deployed = True
 else:
     print("No model found to deploy")

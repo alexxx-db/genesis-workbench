@@ -63,12 +63,27 @@ sql_warehouse_id=abcd1234efgh5678
 | `dev_user_prefix` | Prefix applied to resources during development (keeps parallel installs from colliding) |
 | `app_name` | Name for the Databricks App (default `genesis-workbench`) |
 | `secret_scope_name` | A unique secret scope name the app creates and uses |
+| `enable_inference_tables` | *(optional, default `true`)* AI Gateway payload capture on every endpoint the deploy-model job creates/updates — see note below. |
 
 ```
 dev_user_prefix=demo
 app_name=genesis-workbench
 secret_scope_name=genesis_workbench_secret_scope
 ```
+
+> **`enable_inference_tables` (AI Gateway inference tables,
+> [`HARDENING_CHECKLIST.md`](../HARDENING_CHECKLIST.md) §5.1).** When `true` (the default), every
+> serving endpoint deployed through the deploy-model job gets request/response payload capture into
+> `<core_catalog>.<core_schema>.<endpoint_name>_serving_payload` — the audit/drift/usage trail, and
+> the same table `delete_endpoint()` archives on teardown. Capture is applied best-effort *after*
+> the endpoint is up, so a gateway/permissions problem never fails a long GPU deploy (it prints a
+> warning instead). Set `enable_inference_tables=false` only while payload retention is under
+> review. Endpoints deployed before this existed can be back-filled:
+>
+> ```
+> python scripts/backfill_inference_tables.py --catalog <core_catalog> --schema <core_schema>          # dry-run
+> python scripts/backfill_inference_tables.py --catalog <core_catalog> --schema <core_schema> --apply
+> ```
 
 ---
 

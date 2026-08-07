@@ -1,6 +1,37 @@
 # Genesis Workbench — Changelog
 
-## v2.3.0 (2026-08-05) — Reference basis on every capability · executable hardening checks · workshop-hardening fixes
+## Unreleased (2026-08-07) — AI Gateway inference tables on by default · wheel version-bump gate
+
+Wheel `genesis_workbench` 0.1.36 → 0.1.37. No breaking changes; no schema migration.
+
+### Observability — endpoints now capture payloads (HARDENING_CHECKLIST §5.1)
+
+The AI Gateway config that had sat **commented out** in `deploy_model_endpoint()` since the
+Merck-demo setup is now real code. Design decisions, in case they need revisiting:
+
+- **`put_ai_gateway` after create/update, not `ai_gateway=` on create.** One code path for
+  both the new-endpoint and re-deploy branches, and it makes capture **best-effort by
+  construction**: a gateway/permissions failure prints a warning and the remediation
+  command instead of failing a deploy that may have just spent hours provisioning a GPU.
+  The anti-pattern avoided: coupling a nice-to-have (capture) to the critical path
+  (serving).
+- **Same table name as the legacy auto-capture plan** —
+  `<catalog>.<schema>.<endpoint>_serving_payload` — which is precisely the table
+  `delete_endpoint()` already archives on teardown, so retirement behaviour is unchanged.
+- **On by default, off by choice.** Capture is the production posture; opting out is the
+  deliberate act. Threaded `enable_inference_tables` env → DAB var (`modules/core/variables.yml`)
+  → job parameter (`deploy_model.yml`) → notebook widget → library argument, with a
+  `GWB_ENABLE_INFERENCE_TABLES` env fallback for direct library callers.
+- **Back-fill for pre-existing endpoints:** `scripts/backfill_inference_tables.py`
+  (dry-run by default, `--apply` to act) applies the same convention via the same API.
+
+### CI — a wheel-source PR without a version bump now fails (HARDENING_CHECKLIST §4.3)
+
+`scripts/check_wheel_version.py --require-bump <base-ref>` diffs the library `src/**`
+against the merge-base and fails if the pyproject version didn't move; CI runs it on every
+PR against the base branch (checkout is `fetch-depth: 0` for the merge-base). Uncommitted
+changes count, so the identical command works locally on a dirty tree — the gate that
+caught *this very release's* missing bump before it was committed.
 
 Two changes aimed at the same problem from opposite ends: making the platform state
 what it actually is, rather than requiring a presenter to. Wheel `genesis_workbench`

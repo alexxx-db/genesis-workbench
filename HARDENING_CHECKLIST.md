@@ -184,9 +184,11 @@ useful artifact: it is evidence of the gap rather than an assertion about it. Se
 - **Acceptance:** Un-bumped wheel change fails CI; releases are tagged.
 - **Status (in-repo done):** `scripts/check_wheel_version.py` runs in CI and fails the build if the wheel
   filenames pinned in `app/requirements.txt` / `mcp_app/requirements.txt` drift from the library's
-  `pyproject.toml` version — i.e. it catches exactly the documented stale-wheel import bug. **Remaining:**
-  a change-aware guard that fails a PR touching `library/.../src/**` *without* a version bump, and tagged
-  releases (git tag + changelog gate) on merge to `main`.
+  `pyproject.toml` version — i.e. it catches exactly the documented stale-wheel import bug. On pull
+  requests, CI additionally runs it with `--require-bump origin/<base>`: if anything under
+  `library/.../src/**` differs from the merge-base but the pyproject version does not, the PR fails
+  (uncommitted changes count too, so the same command works pre-commit on a dirty tree).
+  **Remaining:** tagged releases (git tag + changelog gate) on merge to `main`.
 
 ---
 
@@ -201,6 +203,16 @@ useful artifact: it is evidence of the gap rather than an assertion about it. Se
   endpoints via `put_ai_gateway`; decide table naming + retention with the customer.
 - **Effort:** M
 - **Acceptance:** Each endpoint has a populated inference table; a sample query shows captured requests.
+- **Status (in-repo done):** `deploy_model_endpoint()` now enables AI Gateway inference tables on every
+  endpoint it creates *or* updates — applied via `put_ai_gateway` after the endpoint is up (one code path
+  for both) and **best-effort**, so a capture/permissions problem can never fail a deploy that just spent
+  hours provisioning a GPU. Capture lands in `<core_catalog>.<core_schema>.<endpoint>_serving_payload`
+  (the table `delete_endpoint()` already archives). On by default; opt out per install with
+  `enable_inference_tables=false` in `modules/core/module.env` (threaded env → DAB var → job param →
+  notebook), or per call via the `enable_inference_tables` argument / `GWB_ENABLE_INFERENCE_TABLES` env
+  var. Pre-existing endpoints: `scripts/backfill_inference_tables.py --catalog … --schema …` (dry-run by
+  default, `--apply` to act). **Remaining (operational):** run the back-fill on the live install, verify a
+  sample query against a `_payload` table, and agree retention/PII handling with the customer.
 
 ### 5.2 Operational dashboards & alerting
 - **Current:** Settings page shows endpoint status; no proactive monitoring, cost, or failure alerting.

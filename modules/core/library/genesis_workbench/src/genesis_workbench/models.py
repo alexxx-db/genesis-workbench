@@ -447,6 +447,45 @@ def import_model_from_uc(user_email : str,
     return int(result_df.iloc[0]['model_id'])
 
 
+def _inference_tables_enabled(explicit: bool | None = None) -> bool:
+    """Whether to enable AI Gateway inference tables on a deployed endpoint
+    (HARDENING_CHECKLIST.md 5.1). An explicit argument wins; otherwise the
+    GWB_ENABLE_INFERENCE_TABLES env var decides, and the default is ON —
+    payload capture is the production posture, so opting *out* is the
+    deliberate act (e.g. a data-residency review still pending)."""
+    if explicit is not None:
+        return explicit
+    value = os.environ.get("GWB_ENABLE_INFERENCE_TABLES", "true").strip().lower()
+    return value not in ("false", "0", "no", "off")
+
+
+def _enable_inference_tables(w: WorkspaceClient, endpoint_name: str,
+                             catalog_name: str, schema_name: str) -> None:
+    """Best-effort: turn on AI Gateway payload capture for an endpoint.
+
+    Called after the endpoint is already deployed and serving, and deliberately
+    non-fatal — a gateway/permissions hiccup must not fail a model deploy that
+    may have just spent hours provisioning a GPU. On failure it prints the
+    remediation (scripts/backfill_inference_tables.py) and moves on."""
+    table_prefix = f"{endpoint_name}_serving"
+    try:
+        w.serving_endpoints.put_ai_gateway(
+            name=endpoint_name,
+            inference_table_config=AiGatewayInferenceTableConfig(
+                catalog_name=catalog_name,
+                schema_name=schema_name,
+                table_name_prefix=table_prefix,
+                enabled=True,
+            ),
+        )
+        print(f"✅ AI Gateway inference tables enabled → "
+              f"{catalog_name}.{schema_name}.{table_prefix}_payload")
+    except Exception as e:  # noqa: BLE001 — capture is best-effort by design
+        print(f"⚠️ Could not enable AI Gateway inference tables on {endpoint_name}: {e}")
+        print("   The endpoint is deployed and serving. Enable capture later with "
+              "scripts/backfill_inference_tables.py.")
+
+
 def deploy_model_endpoint(catalog_name: str,
                  schema_name : str,
                  dev_user_prefix:str,
@@ -454,7 +493,8 @@ def deploy_model_endpoint(catalog_name: str,
                  model_version: int,
                  workload_type: str,
                  workload_size:str,
-                 creating_user_email:str) -> ServingEndpointDetailed:
+                 creating_user_email:str,
+                 enable_inference_tables: bool | None = None) -> ServingEndpointDetailed:
 
     w = WorkspaceClient()
 
@@ -472,28 +512,6 @@ def deploy_model_endpoint(catalog_name: str,
             scale_to_zero_enabled=scale_to_zero,
         )
     ]
-    # [LEGACY] AutoCaptureConfigInput — replaced with AiGatewayConfig below
-    # auto_capture_config = AutoCaptureConfigInput(
-    #     catalog_name=catalog_name,
-    #     schema_name=schema_name,
-    #     table_name_prefix=f"{endpoint_name}_serving",
-    #     enabled=True,
-    # )
-
-    # [Updated during deploy-fe-vm-hls-amer setup for Merck demo]
-    # Previous AutoCaptureConfigInput is legacy — use AiGatewayConfig instead.
-    # Uncomment the block below + the put_ai_gateway calls to enable
-    # inference tables on all GWB endpoints.
-    #
-    # ai_gateway_config = AiGatewayConfig(
-    #     inference_table_config=AiGatewayInferenceTableConfig(
-    #         catalog_name=catalog_name,
-    #         schema_name=schema_name,
-    #         table_name_prefix=f"{endpoint_name}_serving",
-    #         enabled=True,
-    #     ),
-    # )
-
     print(f"Checking if endpoint: {endpoint_name} exists")
 
     try:
@@ -506,11 +524,6 @@ def deploy_model_endpoint(catalog_name: str,
             served_entities=served_entities,
             timeout = timedelta(minutes=360) #wait up to six hours; large/GPU models can provision past 3h
         )
-        # [Uncomment to enable AI Gateway inference tables on update]
-        # w.serving_endpoints.put_ai_gateway(
-        #     name=endpoint_name,
-        #     inference_table_config=ai_gateway_config.inference_table_config,
-        # )
     except errors.platform.ResourceDoesNotExist as e:
         # if no endpoint yet, make it, wait for it to spin up, and put model on endpoint
         print(f"Creating new endpoint {endpoint_name}")
@@ -520,8 +533,6 @@ def deploy_model_endpoint(catalog_name: str,
                 name=endpoint_name,
                 served_entities=served_entities,
             ),
-            # [Uncomment to enable AI Gateway inference tables on create]
-            # ai_gateway=ai_gateway_config,
             tags=[
                 EndpointTag(key="application", value="genesis_workbench"),
                 EndpointTag(key="created_by", value=creating_user_email)
@@ -529,7 +540,16 @@ def deploy_model_endpoint(catalog_name: str,
             timeout = timedelta(minutes=360) #wait up to six hours. some large/GPU models take very long to provision
         )
 
-        
+    # AI Gateway payload capture (HARDENING_CHECKLIST.md 5.1). Applied via
+    # put_ai_gateway *after* create/update so both paths share one code path,
+    # and best-effort so capture problems never fail the deploy itself.
+    # (Replaces the legacy AutoCaptureConfigInput approach; same
+    # <endpoint>_serving_payload table name, which delete_endpoint archives.)
+    if _inference_tables_enabled(enable_inference_tables):
+        _enable_inference_tables(w, endpoint_name, catalog_name, schema_name)
+    else:
+        print(f"AI Gateway inference tables disabled for {endpoint_name} "
+              "(enable_inference_tables=false)")
 
     return endpoint_details
 
