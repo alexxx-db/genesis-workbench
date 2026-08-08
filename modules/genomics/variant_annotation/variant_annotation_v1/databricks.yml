@@ -25,13 +25,14 @@ targets:
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
+                  zone_id: auto
         variant_annotation:
           job_clusters:
             - job_cluster_key: variant_annotation_cluster
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
-
+                  zone_id: auto
   prod_azure:
     mode: production
     workspace:

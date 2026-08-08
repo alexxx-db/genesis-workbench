@@ -57,7 +57,9 @@ schema = dbutils.widgets.get("schema")
 # MAGIC     mlflow==2.22.0 \
 # MAGIC     cloudpickle==2.0.0 \
 # MAGIC     databricks-sdk==0.50.0 \
-# MAGIC     databricks-sql-connector==4.0.2
+# MAGIC     databricks-sql-connector==4.0.2 \
+# MAGIC     pyOpenSSL==24.2.1 \
+# MAGIC     cryptography==43.0.1
 
 # COMMAND ----------
 
@@ -93,7 +95,10 @@ print(f"Genesis Workbench library wheel: {gwb_library_path}")
 
 # COMMAND ----------
 
-# MAGIC %pip install {gwb_library_path} --force-reinstall
+# MAGIC # --no-deps: the pip block above already installs every dependency the wheel
+# MAGIC # declares (as floors, not pins). Without it, --force-reinstall re-resolves
+# MAGIC # them to latest and pulls a cryptography that breaks pyOpenSSL (GEN_EMAIL).
+# MAGIC %pip install {gwb_library_path} --force-reinstall --no-deps
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------

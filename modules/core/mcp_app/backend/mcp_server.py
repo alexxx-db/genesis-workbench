@@ -7,7 +7,11 @@ endpoint/job/chain/transform execution — lives in the wheel and is shared with
 UI and Vortex pathways.
 
 Hosted as a Databricks App (mcp-genesis-workbench): FastMCP streamable-HTTP at /mcp
-on port 8000. Endpoint/job calls run as the app service principal.
+on port 8000. Endpoint/job calls run as the app service principal, but every tool
+call is authorized against the *caller* first (genesis_workbench.mcp_authz,
+HARDENING_CHECKLIST.md 2.1): identity from the Databricks Apps proxy headers,
+entitlement from the same app_permissions table the UI enforces. Deny raises with
+the missing grant; MCP_AUTHZ_MODE=permissive|disabled relaxes the gate.
 """
 from __future__ import annotations
 
@@ -23,6 +27,12 @@ from pydantic import Field
 
 from genesis_workbench.capabilities import CHAIN, ENDPOINT, JOB, list_capabilities
 from genesis_workbench.executor import RUNNABLE_CHAINS, execute_capability, run_status
+from genesis_workbench.mcp_authz import (
+    authorize,
+    identity_from_headers,
+    reset_caller,
+    set_caller,
+)
 from genesis_workbench.workbench import initialize
 
 logging.basicConfig(level=logging.INFO)
@@ -53,6 +63,11 @@ def _tool_for(cap):
     param_names = [p.name for p in cap.params]
 
     def impl(**kwargs):
+        decision = authorize(cap.module)
+        if not decision.allowed:
+            # FastMCP surfaces the exception message as the tool error, so the
+            # agent (and the human behind it) sees exactly what grant is missing.
+            raise PermissionError(f"Not authorized to run this capability: {decision.reason}")
         inputs = {k: kwargs[k] for k in input_names if kwargs.get(k) is not None}
         params = {k: kwargs[k] for k in param_names if kwargs.get(k) is not None}
         return execute_capability(cap, inputs=inputs, params=params)
@@ -126,13 +141,17 @@ def _register_tools() -> int:
 
     def list_capabilities_tool() -> list[dict]:
         """List all Genesis Workbench capabilities exposed here — endpoints and
-        prebuilt workflows — with the tool name to call and whether it's runnable."""
+        prebuilt workflows — with the tool name to call, whether it's runnable,
+        and whether *you* (the calling identity) are authorized to run it."""
+        # Metadata stays open to any admitted caller; per-capability authz is
+        # annotated so an agent can plan without burning denied tool calls.
         out = []
         for cap in list_capabilities():
             name = _tool_name(cap)
             runnable = name is not None and not (cap.kind == CHAIN and cap.chain_id not in RUNNABLE_CHAINS)
             out.append({"kind": cap.kind, "label": cap.label, "module": cap.module,
                         "tool": name if runnable else None, "runnable": runnable,
+                        "authorized": authorize(cap.module, audit=False).allowed,
                         "reference_basis": cap.reference_basis,
                         "basis_scope": cap.basis_scope})
         return out
@@ -143,13 +162,37 @@ def _register_tools() -> int:
     return n
 
 
+class CallerIdentityMiddleware:
+    """Capture the Databricks Apps proxy identity headers into the authz
+    contextvar for the lifetime of each request. Pure ASGI (no framework
+    dependency), so it survives FastMCP internals changing. Tool handlers run
+    inside the request task, so the contextvar is visible to authorize()."""
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.inner(scope, receive, send)
+            return
+        headers = {k.decode("latin-1"): v.decode("latin-1")
+                   for k, v in scope.get("headers", [])}
+        token = set_caller(identity_from_headers(headers))
+        try:
+            await self.inner(scope, receive, send)
+        finally:
+            reset_caller(token)
+
+
 def build_app():
     try:
         _init_lib()
         _register_tools()
     except Exception as e:  # noqa: BLE001 — never block startup
         logger.exception("Tool registration failed (serving minimal tool set): %s", e)
-    return mcp.streamable_http_app()
+    logger.info("Per-caller authorization mode: %s",
+                os.environ.get("MCP_AUTHZ_MODE", "enforce"))
+    return CallerIdentityMiddleware(mcp.streamable_http_app())
 
 
 app = build_app()

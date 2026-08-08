@@ -35,7 +35,10 @@ print(gwb_library_path)
 
 # COMMAND ----------
 
-# MAGIC %pip install {gwb_library_path} --force-reinstall
+# MAGIC # --no-deps: the pip blocks above already install everything the wheel declares
+# MAGIC # (as floors, not pins). Without it, --force-reinstall re-resolves the whole
+# MAGIC # tree and disturbs the torch/lightning/tensorboard pairing dbboltz[gpu] set up.
+# MAGIC %pip install {gwb_library_path} --force-reinstall --no-deps
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------

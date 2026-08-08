@@ -68,7 +68,12 @@ resources:
               - mlflow>=2.15
               - databricks-sdk>=0.50.0
               - databricks-sql-connector>=4.0.2
-              - PyTDC
+              # PyTDC is intentionally NOT declared here: its dependency tree conflicts
+              # during serverless environment resolution (ERROR_INVALID_USER_INPUT).
+              # 03_chemprop_multitask_admet.py installs it itself with --no-deps — which
+              # means PyTDC's own deps are NOT pulled, so the ones the notebook actually
+              # imports must be declared explicitly here.
+              - huggingface-hub
               - scikit-learn>=1.3
 
       parameters:

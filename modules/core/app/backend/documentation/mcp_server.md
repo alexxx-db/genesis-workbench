@@ -39,18 +39,27 @@ Typical flow: call **`list_capabilities`** to see what's available and the tool 
 
 ## Security & access control
 
-The MCP server invokes every endpoint/workflow under **the app's service principal**, which is granted `CAN_QUERY` on the endpoints and `CAN_MANAGE_RUN` on the jobs at deploy. There is currently **no per-caller authorization** on the MCP path: anyone who can open the app can call any tool the app SP is entitled to (the same model the UI app uses today). Per-user authorization — gating each call against the caller's `AppPermissionsManager` module access — is a tracked follow-up.
+Two layers, deny-by-default at both:
 
-**Until that lands, the app's accessor list IS the access control.** It is pinned declaratively in `resources/mcp_app.yml` (so it survives redeploys):
+**Layer 1 — who can reach the app** (the accessor list, pinned declaratively in `resources/mcp_app.yml` so it survives redeploys). The **deployer** gets `CAN_MANAGE` and workspace **admins** always retain access (the bundle can't set the admins entry — Databricks manages it). To admit a group, add a `CAN_USE` entry to the `permissions:` block (the group must exist; do **not** use `admins`), then redeploy:
 
-- The **deployer** gets `CAN_MANAGE` and workspace **admins** always retain access (the bundle can't set the admins entry — Databricks manages it). This is **deny-by-default**: only the deployer + admins can call the server out of the box.
-- To entitle a group, add a `CAN_USE` entry to the `permissions:` block in `mcp_app.yml` (the group must exist; do **not** use `admins`), then redeploy:
-  ```yaml
-  - level: CAN_USE
-    group_name: <your-entitled-group>
-  ```
+```yaml
+- level: CAN_USE
+  group_name: <your-entitled-group>
+```
 
-Scope this to the group entitled to invoke Genesis Workbench workflows/endpoints, and do **not** grant the app to "all users" while the per-caller gate is absent.
+**Layer 2 — what each admitted caller may run** (per-caller authorization, `genesis_workbench.mcp_authz`). Tool calls still *execute* as the app service principal (which holds `CAN_QUERY` on endpoints and `CAN_MANAGE_RUN` on jobs), but before executing, every call is authorized against the **caller**:
+
+1. **Identity** comes from the Databricks Apps proxy headers (`X-Forwarded-Email` / `X-Forwarded-Access-Token` — the same SSO-backed trust model as the UI backend's `auth.py`), captured per request by an ASGI middleware.
+2. **Groups** are resolved via SCIM — with the caller's own forwarded token when present (which also proves the token is live), else by the app SP looking up the email — and cached (TTL `MCP_AUTHZ_CACHE_TTL`, default 300 s).
+3. **Policy** is the same `app_permissions` table the UI enforces: the caller needs an active `module_access` grant for the capability's module (`large_molecule` / `small_molecule` / `single_cell` / `genomics`; module-less capabilities gate as `core`) at `MCP_REQUIRED_ACCESS_LEVEL` (default `view`). Members of `genesis-admin-group` (override: `GWB_ADMIN_GROUP`) or workspace `admins` are always allowed.
+4. **Deny raises** a tool error stating the exact missing grant, and **every decision is audit-logged** as a structured `mcp_authz` JSON line in the app logs (denials at WARNING).
+
+The `list_capabilities` tool annotates each capability with `authorized: true|false` for the calling identity, so an agent can plan without burning denied calls. `get_workflow_run_status` stays open to admitted callers.
+
+**Mode knob** (`MCP_AUTHZ_MODE` in `mcp_app/app.yml`): `enforce` (default) denies; `permissive` logs the would-be denial but allows — use it to dry-run a rollout and mine the audit log for missing grants; `disabled` restores the legacy SP-only behavior.
+
+**Granting access end-to-end:** admit the group at layer 1 (accessor list), then grant its modules at layer 2 — `AppPermissionsManager.grant_module_access(module_name="single_cell", groups=["<group>"], access_level="view")` or via the Master Settings UI. The `setup_permissions` task of `initialize_core` seeds `genesis-admin-group` with `full` on every registered module at deploy.
 
 ## How It's Implemented
 
@@ -63,8 +72,9 @@ Scope this to the group entitled to invoke Genesis Workbench workflows/endpoints
 
 ### Key Files
 
-- `modules/core/mcp_app/backend/mcp_server.py` — the FastMCP server + tool registration
-- `modules/core/mcp_app/app.yml`, `modules/core/mcp_app/requirements.txt` — the Databricks App definition
+- `modules/core/mcp_app/backend/mcp_server.py` — the FastMCP server + tool registration + identity middleware
+- `modules/core/library/genesis_workbench/src/genesis_workbench/mcp_authz.py` — per-caller authorization (identity, groups, policy, audit)
+- `modules/core/mcp_app/app.yml`, `modules/core/mcp_app/requirements.txt` — the Databricks App definition (incl. `MCP_AUTHZ_MODE`)
 - `modules/core/mcp_app/scripts/seed_prebuilt_workflows.py` — seeds the prebuilt-workflow capabilities
 - `modules/core/library/genesis_workbench/src/genesis_workbench/{capabilities,executor}.py` — shared capability core
 - `modules/core/update.sh` — stages + deploys the MCP app and grants its service principal

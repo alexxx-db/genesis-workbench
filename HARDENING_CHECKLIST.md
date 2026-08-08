@@ -105,6 +105,20 @@ useful artifact: it is evidence of the gap rather than an assertion about it. Se
 - **Effort:** L
 - **Acceptance:** A user without entitlement to endpoint X is denied when calling `endpoint_X` via MCP
   but the entitled user succeeds; every call is attributable to the human, not just the SP.
+- **Status (in-repo done):** `genesis_workbench.mcp_authz` + an identity middleware in `mcp_server.py`.
+  Identity comes from the Databricks Apps proxy headers (same trust model as the UI's `auth.py`); groups
+  resolve via SCIM using the caller's forwarded token when present (which also validates it), TTL-cached;
+  policy is the **same `app_permissions` table the UI enforces** — the caller needs a `module_access`
+  grant for the capability's module at `MCP_REQUIRED_ACCESS_LEVEL` (default `view`); `genesis-admin-group`
+  (override `GWB_ADMIN_GROUP`) and workspace `admins` bypass. Deny raises a tool error naming the missing
+  grant; every decision emits a structured `mcp_authz` audit line (denials at WARNING);
+  `list_capabilities` annotates per-caller `authorized`. Modes via `MCP_AUTHZ_MODE` in `mcp_app/app.yml`:
+  `enforce` (default) / `permissive` (log-only dry-run) / `disabled`. `permissions_config.MODULES` now
+  registers `small_molecule`, `genomics`, and `core` so the existing manager/seeding covers every
+  capability module. 24 unit tests cover the decision matrix. **Remaining (operational):** run the
+  acceptance test on a live install (entitled vs non-entitled caller), and decide the per-group grant
+  matrix with the customer. Note: capability-level (finer than module-level) allow-lists remain a
+  possible refinement if a customer needs them.
 
 ### 2.2 MCP access-control runbook & default posture
 - **Current:** Entitlement is a manual `CAN_USE` edit in `resources/mcp_app.yml`; easy to misconfigure to
@@ -113,6 +127,11 @@ useful artifact: it is evidence of the gap rather than an assertion about it. Se
 - **Work:** Write the runbook; add a deploy-time check that fails if the MCP app is shared broadly.
 - **Effort:** S
 - **Acceptance:** Runbook exists; broad-share check trips in a test.
+- **Status (in-repo done):** the runbook is the "Security & access control" section of
+  `app/backend/documentation/mcp_server.md` (two-layer model + end-to-end grant procedure), and
+  `hardening_check.py` 2.2 asserts no broad principal in the bundle (source) and on the deployed app
+  (live). With per-caller authz (2.1) in enforce mode, a broad accessor grant no longer means broad
+  *capability* access — but keep the accessor list scoped anyway (defense in depth).
 
 ---
 
