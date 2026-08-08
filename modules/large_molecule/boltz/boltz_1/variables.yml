@@ -24,6 +24,8 @@ variables:
     description: Resource tags
     default: 
       application: genesis_workbench
+      cost_center: genesis_workbench
+      project: genesis_workbench
       module: boltz
       created_by: ${var.current_user}
 

@@ -1,0 +1,72 @@
+# Genesis Workbench — tagged wheel releases (HARDENING_CHECKLIST.md 4.3).
+#
+# CI already forces a version bump whenever the library's src/ changes; this
+# workflow makes each bump on main a durable artifact: a `wheel-vX.Y.Z` git tag
+# plus a GitHub Release carrying the built wheel. `wheel-` prefixed so the tag
+# namespace never collides with platform releases (v2.3.0 &c. in CHANGELOG.md).
+#
+# Triggered only when the library pyproject changes on main (the version lives
+# there, so a bump cannot land without touching it). Idempotent: if the tag for
+# the current version already exists, the run is a no-op — safe to re-run via
+# workflow_dispatch.
+name: Release wheel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - modules/core/library/genesis_workbench/pyproject.toml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tag-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read wheel version
+        id: version
+        run: |
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' modules/core/library/genesis_workbench/pyproject.toml | head -1)
+          test -n "$VERSION" || { echo "could not parse version"; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=wheel-v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Already released?
+        id: exists
+        run: |
+          git fetch --tags --quiet
+          if git rev-parse -q --verify "refs/tags/${{ steps.version.outputs.tag }}" >/dev/null; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${{ steps.version.outputs.tag }} exists — nothing to do."
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.exists.outputs.released == 'false'
+        with:
+          python-version: "3.11"
+
+      - name: Build wheel
+        if: steps.exists.outputs.released == 'false'
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel modules/core/library/genesis_workbench
+          ls modules/core/library/genesis_workbench/dist/
+
+      - name: Tag + GitHub release
+        if: steps.exists.outputs.released == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            modules/core/library/genesis_workbench/dist/*.whl \
+            --target "${{ github.sha }}" \
+            --title "genesis_workbench ${{ steps.version.outputs.version }}" \
+            --notes "Wheel \`genesis_workbench-${{ steps.version.outputs.version }}\` as built from \`main\` @ ${{ github.sha }}. See CHANGELOG.md for what changed."

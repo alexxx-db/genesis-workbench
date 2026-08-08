@@ -36,4 +36,8 @@ databricks jobs list-runs --limit 50 --output json | jq -r '.runs[] | select(.st
 databricks serving-endpoints list --output json | jq -r '.endpoints[] | "\(.name)\t\(.state.ready)"'
 ```
 
+Or run the whole post-deploy verification (job results, endpoint readiness, payload-capture state with a
+sample query, app status, optional single inference) in one exit-coded pass:
+`python scripts/smoke_test.py [--profile <p>]`.
+
 **Known false-positive:** a slow GPU `deploy_model_job` (e.g. scGPT ~95 min) exceeds the **3600s internal wait** → the calling `update_model_catalog_*` task (or `deploy.sh`) reports `TimeoutError: Job run … did not complete within 3600 seconds`, but the deploy usually **SUCCEEDED** — confirm via the **endpoint READY state**, not the task result. Full failure catalog (genmol SP defaults, scimilarity volume-delete, unwired `gene_sequences`, cellxgene Volume-write errno 95, the wait-timeout false-positive) is in the deploy-wizard skill's **Post-deploy verification** section and `CHANGELOG.md` → Unreleased.

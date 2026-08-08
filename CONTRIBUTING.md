@@ -100,5 +100,15 @@ workspace credentials. To turn it on for a repo, set the `ENABLE_BUNDLE_VALIDATE
 (`DATABRICKS_TOKEN` or `DATABRICKS_CLIENT_ID`/`DATABRICKS_CLIENT_SECRET`) *secrets*. Locally, always run
 `databricks bundle validate` for the bundle(s) you touched, per the checklist above.
 
-Still to come (see [hardening checklist](HARDENING_CHECKLIST.md) §4.1–4.3): a real style linter (ruff), a
-nightly smoke-deploy, and tagged releases.
+Two more pieces live alongside the PR gates:
+
+- **Tagged wheel releases** — [`.github/workflows/release.yml`](.github/workflows/release.yml) fires when
+  a wheel version bump lands on `main`: it builds the wheel and publishes a `wheel-vX.Y.Z` tag + GitHub
+  Release with the artifact attached (idempotent, so re-runs are safe).
+- **Post-deploy smoke test** — `python scripts/smoke_test.py [--profile <p>]` verifies a *live* install:
+  recent GWB job runs succeeded, endpoints READY, payload capture on (with a sample query), apps RUNNING,
+  optional one-shot inference. Not a default CI gate (needs workspace credentials); run it after every
+  deploy and, ideally, nightly against the demo install.
+
+Still to come (see [hardening checklist](HARDENING_CHECKLIST.md) §4.1–4.3): a real style linter (ruff)
+and the ephemeral smoke-*deploy* harness.
