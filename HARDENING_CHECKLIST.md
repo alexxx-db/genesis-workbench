@@ -81,6 +81,13 @@ useful artifact: it is evidence of the gap rather than an assertion about it. Se
   cluster-based jobs are `ON_DEMAND` and tagged.
 - **Effort:** M
 - **Acceptance:** Post-deploy check passes for 100% of jobs; policy blocks a non-conforming cluster.
+- **Status (in-repo done):** every module's `common_resource_tags` (all 29 `variables.yml`) now declares
+  the cost-allocation tags `cost_center` and `project` (defaults `genesis_workbench`; override the whole
+  mapping per install via a one-line JSON `common_resource_tags={...}` in `application.env`, same
+  mechanism as `run_as_principal`). `hardening_check.py` gained a **source half for 1.3** that fails CI if
+  a module drops them, complementing the existing live ON_DEMAND+tags check, and
+  `scripts/smoke_test.py` runs the post-deploy assertion. **Remaining:** author actual cluster *policies*
+  (the enforcement guardrail) and set customer-real tag values.
 
 ---
 
@@ -173,6 +180,13 @@ useful artifact: it is evidence of the gap rather than an assertion about it. Se
   pattern already in `mcp_app/scripts/test_mcp_server.py`).
 - **Effort:** L
 - **Acceptance:** Coverage threshold met on the wheel; nightly smoke-deploy passes end-to-end.
+- **Status (partial):** wheel unit tests are now 65 and run in CI. `scripts/smoke_test.py` executes the
+  post-deploy half against a live install — recent GWB job runs all SUCCESS, endpoints READY, payload
+  capture on with a sample `COUNT(*)` per `_payload` table (the 5.1 acceptance query), apps RUNNING, and
+  an opt-in single inference (`--infer <endpoint> --input '<json>'`, opt-in because it can wake a
+  scale-to-zero GPU). Exit-coded and `--json`-capable so it can run nightly. **Remaining:** the
+  *ephemeral deploy* part (spin up, deploy core + one light module, smoke, tear down) and a wheel
+  coverage threshold.
 
 ### 4.3 Release/versioning discipline
 - **Current:** Wheel version bumps are manual and have caused stale-wheel import bugs (documented); no
@@ -188,7 +202,10 @@ useful artifact: it is evidence of the gap rather than an assertion about it. Se
   requests, CI additionally runs it with `--require-bump origin/<base>`: if anything under
   `library/.../src/**` differs from the merge-base but the pyproject version does not, the PR fails
   (uncommitted changes count too, so the same command works pre-commit on a dirty tree).
-  **Remaining:** tagged releases (git tag + changelog gate) on merge to `main`.
+  Tagged releases: `.github/workflows/release.yml` — when a wheel version bump lands on `main`, it
+  builds the wheel and publishes a `wheel-vX.Y.Z` tag + GitHub Release with the artifact attached
+  (idempotent; `wheel-` prefix so platform release tags like `v2.3.0` stay separate). **Remaining:** a
+  changelog-entry gate if desired.
 
 ---
 
@@ -211,8 +228,11 @@ useful artifact: it is evidence of the gap rather than an assertion about it. Se
   `enable_inference_tables=false` in `modules/core/module.env` (threaded env → DAB var → job param →
   notebook), or per call via the `enable_inference_tables` argument / `GWB_ENABLE_INFERENCE_TABLES` env
   var. Pre-existing endpoints: `scripts/backfill_inference_tables.py --catalog … --schema …` (dry-run by
-  default, `--apply` to act). **Remaining (operational):** run the back-fill on the live install, verify a
-  sample query against a `_payload` table, and agree retention/PII handling with the customer.
+  default, `--apply` to act). **Remaining (operational):** run the back-fill on the live install and
+  verify capture — `scripts/smoke_test.py --profile <install>` now executes the acceptance directly
+  (capture enabled per endpoint + a sample `COUNT(*)` per `_payload` table). Note: no GWB install is
+  reachable from the profiles on this dev machine (checked 2026-08-07), so this must run wherever a
+  profile for the install exists. Retention/PII handling still needs a customer decision.
 
 ### 5.2 Operational dashboards & alerting
 - **Current:** Settings page shows endpoint status; no proactive monitoring, cost, or failure alerting.

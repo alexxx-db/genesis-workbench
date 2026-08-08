@@ -32,6 +32,7 @@ override an earlier key.
 | `core_schema_name` | Schema GWB uses — **must be exclusive to GWB** (created if absent) |
 | `sql_warehouse_id` | ID of a SQL Warehouse for the app (a 2X-Small is sufficient) |
 | `run_as_principal` | *(optional)* Identity that owns/runs deployed jobs. Defaults to the deploying user. Set to a runtime service principal for production — see note below. |
+| `common_resource_tags` | *(optional)* Tags stamped on every job/cluster, incl. the cost-allocation pair `cost_center`/`project` (both default `genesis_workbench`; [`HARDENING_CHECKLIST.md`](../HARDENING_CHECKLIST.md) §1.3). To set your finance codes, override per module in that module's `module.env` as a one-line JSON mapping — e.g. `common_resource_tags={"application":"genesis_workbench","cost_center":"CC-1234","project":"gwb-research","module":"core","created_by":"deployer"}`. (Setting it here in `application.env` also works but applies one identical mapping to *every* module, flattening the per-module `module:` tag.) |
 
 ```
 workspace_url=https://adb-xxxx.azuredatabricks.net

@@ -24,6 +24,8 @@ variables:
     description: Resource tags
     default:
       application: genesis_workbench
+      cost_center: genesis_workbench
+      project: genesis_workbench
       module: netsolp
       created_by: ${workspace.current_user.short_name}
 

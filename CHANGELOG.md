@@ -33,6 +33,33 @@ PR against the base branch (checkout is `fetch-depth: 0` for the merge-base). Un
 changes count, so the identical command works locally on a dirty tree — the gate that
 caught *this very release's* missing bump before it was committed.
 
+### Cost-allocation tags on every module (HARDENING_CHECKLIST §1.3, source half)
+
+All 29 `variables.yml` now declare `cost_center` and `project` in `common_resource_tags`
+(defaults `genesis_workbench`; override per module in `module.env` with a one-line JSON
+mapping — overriding in `application.env` works too but flattens the per-module `module:`
+tag). `hardening_check.py` gained the matching source check, so a future module that drops
+the tags fails CI rather than deploying untaggable clusters. Cluster *policies* (the
+enforcement layer) remain open.
+
+### Tagged wheel releases (HARDENING_CHECKLIST §4.3, closed)
+
+`.github/workflows/release.yml`: when a wheel version bump lands on `main`, build the
+wheel and publish a `wheel-vX.Y.Z` tag + GitHub Release with the artifact attached.
+`wheel-` prefix keeps the tag namespace clear of platform releases (`v2.3.0`); idempotent
+so re-runs and manual `workflow_dispatch` are safe.
+
+### Post-deploy smoke test (HARDENING_CHECKLIST §4.2, live half)
+
+`scripts/smoke_test.py` executes the post-deploy verification CLAUDE.md prescribes by
+hand, in one exit-coded pass: recent GWB job runs all SUCCESS, endpoints READY, AI Gateway
+payload capture enabled per endpoint **plus a sample `COUNT(*)` against each `_payload`
+table** (the §5.1 acceptance query, distinguishing "no requests yet" from "not queryable"),
+apps RUNNING, and an opt-in single inference (`--infer <endpoint> --input '<json>'` —
+opt-in because it can wake a scale-to-zero GPU endpoint). `--json` for nightly automation.
+Verified live against a workspace (correctly reports a missing install as a failure).
+The ephemeral smoke-*deploy* harness is the remaining §4.2 item.
+
 Two changes aimed at the same problem from opposite ends: making the platform state
 what it actually is, rather than requiring a presenter to. Wheel `genesis_workbench`
 0.1.35 → 0.1.36; no breaking changes; no schema migration required. Ships together with

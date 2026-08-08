@@ -22,7 +22,8 @@ Exit codes: 0 = no failures, 1 = at least one FAIL, 2 = could not run.
 Checks map 1:1 onto HARDENING_CHECKLIST.md section numbers:
     1.1  jobs run as a service principal, not a human
     1.2  no hardcoded workspace-specific defaults in source
-    1.3  job clusters are ON_DEMAND and carry cost-allocation tags
+    1.3  cost-allocation tags declared in bundles (source) and job clusters
+         ON_DEMAND + tagged (live)
     2.2  the MCP app is not shared broadly
     3.1  no plaintext credentials in job definitions
 """
@@ -131,6 +132,29 @@ def check_bundle_run_as() -> Result:
                       "off-boarding.", _cap(hits))
     return Result("1.1", "Bundles declare a service-principal run_as", PASS,
                   "No bundle target runs as a named user.")
+
+
+def check_cost_tags_declared() -> Result:
+    """1.3 (source half) — every module's common_resource_tags must declare the
+    cost-allocation tags, so job clusters are born tagged rather than fixed
+    post-deploy. The live check below asserts the same thing on deployed jobs."""
+    hits: list[str] = []
+    for path in REPO.glob("modules/**/variables.yml"):
+        if "node_modules" in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        m = re.search(r"common_resource_tags:.*?(?=\n  \w|\Z)", text, re.S)
+        block = m.group(0) if m else ""
+        missing = [t for t in REQUIRED_TAGS if f"{t}:" not in block]
+        if missing:
+            hits.append(f"{path.relative_to(REPO)} — missing {','.join(missing)}")
+    if hits:
+        return Result("1.3", "Bundles declare cost-allocation tags", FAIL,
+                      f"{len(hits)} module(s) lack {REQUIRED_TAGS} in "
+                      "common_resource_tags; clusters they create can't be "
+                      "charged back.", _cap(hits))
+    return Result("1.3", "Bundles declare cost-allocation tags", PASS,
+                  f"All modules declare {REQUIRED_TAGS} in common_resource_tags.")
 
 
 def check_mcp_broad_share_declared() -> Result:
@@ -291,7 +315,7 @@ def check_mcp_app_permissions(w, mcp_app_name) -> Result:
 
 def run(args) -> list[Result]:
     results = [check_bundle_run_as(), check_hardcoded_defaults(),
-               check_mcp_broad_share_declared()]
+               check_cost_tags_declared(), check_mcp_broad_share_declared()]
     if args.source_only:
         return results
 
