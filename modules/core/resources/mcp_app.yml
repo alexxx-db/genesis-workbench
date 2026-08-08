@@ -5,19 +5,23 @@ resources:
       description: 'MCP server for Genesis Workbench (deployed endpoints; workflows in P1)'
       source_code_path: ../mcp_app
 
-      # SECURITY (interim control). The MCP server runs every endpoint/workflow
-      # under the app service principal with NO per-user authorization — anyone who
-      # can open the app can invoke any capability the app SP is entitled to. Until
-      # a per-caller authorization gate lands, the accessor list IS the access
-      # control: it is pinned here (declarative, survives redeploys) to the deployer
-      # only, which is deny-by-default. Workspace admins always retain access (and
-      # the bundle cannot set the admins entry — Databricks manages it).
+      # SECURITY — two layers (HARDENING_CHECKLIST.md 2.1/2.2):
+      #   1. This accessor list decides who can reach the app at all. Pinned to
+      #      the deployer (deny-by-default); workspace admins always retain
+      #      access (Databricks manages that entry — do NOT add "admins" here).
+      #   2. Per-caller authorization inside the server (genesis_workbench
+      #      .mcp_authz) decides which capabilities each admitted caller may
+      #      run, from the same app_permissions table the UI enforces. Tool
+      #      calls run as the app SP, but are denied unless the caller's groups
+      #      hold a module_access grant for the capability's module (admin
+      #      group bypasses). Mode knob: MCP_AUTHZ_MODE in mcp_app/app.yml.
       #
-      # To entitle a specific group, add a CAN_USE entry below (the group must
-      # already exist; do NOT use "admins"), then redeploy:
+      # To entitle a specific group: add a CAN_USE entry below (the group must
+      # already exist; do NOT use "admins"), redeploy, AND grant the group
+      # module access via AppPermissionsManager.grant_module_access (or the
+      # Master Settings UI). See app/backend/documentation/mcp_server.md.
       #   - level: CAN_USE
       #     group_name: <your-entitled-group>
-      # See app/backend/documentation/mcp_server.md.
       permissions:
         - level: CAN_MANAGE
           user_name: ${var.current_user}

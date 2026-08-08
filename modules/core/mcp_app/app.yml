@@ -14,3 +14,8 @@ env:
     valueFrom: "dev_user_prefix"
   - name: DATABRICKS_APP_NAME
     value: "mcp-genesis-workbench"
+  # Per-caller authorization (HARDENING_CHECKLIST.md 2.1). enforce = deny tools
+  # the caller has no app_permissions module grant for; permissive = log the
+  # would-be denial but allow (rollout dry-run); disabled = legacy SP-only.
+  - name: MCP_AUTHZ_MODE
+    value: "enforce"

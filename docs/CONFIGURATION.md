@@ -139,6 +139,12 @@ Once deployed, additional configuration lives in Delta tables and app settings r
   similar preferences, stored in `user_settings`.
 - **App resource bindings** (`app.yml`) — the LLM endpoint (`LLM_ENDPOINT_NAME`), SQL warehouse, secrets,
   and job permissions the app needs at runtime.
+- **MCP per-caller authorization** (`mcp_app/app.yml` env, [`HARDENING_CHECKLIST.md`](../HARDENING_CHECKLIST.md) §2.1) —
+  `MCP_AUTHZ_MODE` = `enforce` (default) | `permissive` (log-only dry-run) | `disabled`;
+  `MCP_REQUIRED_ACCESS_LEVEL` = `view` (default) | `full`; `GWB_ADMIN_GROUP` (default
+  `genesis-admin-group`); `MCP_AUTHZ_CACHE_TTL` seconds (default `300`). Entitlements themselves live in
+  the `app_permissions` table (managed via `AppPermissionsManager` / Master Settings), the same store the
+  UI enforces.
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md#the-data-model-delta-tables-in-the-gwb-schema) for the full data
 model.
