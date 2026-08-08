@@ -24,33 +24,39 @@ targets:
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
+                  zone_id: auto
         alphafold_register_and_downloads:
           job_clusters:
             - job_cluster_key: download_common_files_cluster
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
+                  zone_id: auto
             - job_cluster_key: download_params_cluster
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
+                  zone_id: auto
             - job_cluster_key: download_unirefs_cluster
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
+                  zone_id: auto
             - job_cluster_key: download_mgnifyPLUS_cluster
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
+                  zone_id: auto
             - job_cluster_key: download_uniprot_cluster
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
+                  zone_id: auto
             - job_cluster_key: pdb_mmcif_cluster
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
-
+                  zone_id: auto
   prod_azure:
     mode: production
     workspace:

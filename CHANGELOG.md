@@ -1,5 +1,34 @@
 # Genesis Workbench — Changelog
 
+## Unreleased (2026-08-07) — Per-caller MCP authorization
+
+Wheel `genesis_workbench` 0.1.37 → 0.1.38. No schema migration. **Behavior change:** the MCP
+server now denies tool calls from callers without an `app_permissions` module grant (see below
+for the rollout knob).
+
+### MCP server — per-caller authorization (HARDENING_CHECKLIST §2.1)
+
+The MCP app used to run every capability as the app SP with no idea who asked; the accessor
+list was the only control. Now every tool call is authorized against the **caller** first
+(`genesis_workbench/mcp_authz.py` + an ASGI identity middleware in `mcp_server.py`):
+
+- **Identity** from the Databricks Apps proxy headers (`X-Forwarded-Email` /
+  `X-Forwarded-Access-Token`) — the same SSO-backed trust model the UI backend already uses.
+- **Groups** via SCIM with the caller's own forwarded token when present (which also proves
+  the token is live), else an app-SP lookup by email; TTL-cached (`MCP_AUTHZ_CACHE_TTL`, 300 s).
+- **Policy = the UI's policy.** The caller needs an active `module_access` grant in the same
+  `app_permissions` table, for the capability's module, at `MCP_REQUIRED_ACCESS_LEVEL`
+  (default `view`). `genesis-admin-group` (override `GWB_ADMIN_GROUP`) and workspace `admins`
+  always pass. `permissions_config.MODULES` gained `small_molecule`, `genomics`, and `core`
+  (the gate for module-less capabilities) so one grant surface covers every capability.
+- **Deny names the missing grant** in the tool error; **every decision is audit-logged** as a
+  structured `mcp_authz` JSON line (denials at WARNING). `list_capabilities` now annotates
+  per-caller `authorized: true|false` so agents can plan without burning denied calls.
+- **Rollout knob:** `MCP_AUTHZ_MODE` in `mcp_app/app.yml` — `enforce` (default) /
+  `permissive` (log the would-be denial, allow — dry-run a rollout by mining the audit log) /
+  `disabled` (legacy SP-only). 24 unit tests cover the decision matrix
+  (`tests/test_mcp_authz.py`).
+
 ## Unreleased (2026-08-07) — AI Gateway inference tables on by default · wheel version-bump gate
 
 Wheel `genesis_workbench` 0.1.36 → 0.1.37. No breaking changes; no schema migration.

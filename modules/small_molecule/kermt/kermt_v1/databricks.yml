@@ -26,19 +26,21 @@ targets:
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
+                  zone_id: auto
         kermt_finetune:
           job_clusters:
             - job_cluster_key: gpu_cluster
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
+                  zone_id: auto
         kermt_deploy:
           job_clusters:
             - job_cluster_key: gpu_cluster
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
-
+                  zone_id: auto
   prod_azure:
     mode: production
     workspace:

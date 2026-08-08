@@ -25,7 +25,7 @@ targets:
         parabricks_cluster:
           aws_attributes:
             availability: ON_DEMAND
-
+            zone_id: auto
   prod_azure:
     mode: production
     workspace:

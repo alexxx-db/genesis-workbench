@@ -54,7 +54,9 @@ schema = dbutils.widgets.get("schema")
 # MAGIC     loralib==0.1.2 \
 # MAGIC     einops==0.8.2 \
 # MAGIC     transformers==5.5.0 \
-# MAGIC     jaxtyping
+# MAGIC     jaxtyping \
+# MAGIC     pyOpenSSL==24.2.1 \
+# MAGIC     cryptography==43.0.1
 
 # COMMAND ----------
 
@@ -99,7 +101,10 @@ print(gwb_library_path)
 
 # COMMAND ----------
 
-# MAGIC %pip install {gwb_library_path} --force-reinstall
+# MAGIC # --no-deps: the pip block above already installs every dependency the wheel
+# MAGIC # declares (as floors, not pins). Without it, --force-reinstall re-resolves
+# MAGIC # them to latest and pulls a cryptography that breaks pyOpenSSL (GEN_EMAIL).
+# MAGIC %pip install {gwb_library_path} --force-reinstall --no-deps
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------

@@ -72,8 +72,20 @@ rm -f app/backend/lib/genesis_workbench-*.whl
 cp "$WHEEL" app/backend/lib/
 echo "Staged $WHEEL_NAME → app/backend/lib/"
 
+# Same staging for the sibling MCP app (mcp-genesis-workbench). The wheel is
+# NOT gitignored (gitignored files are excluded from the DAB sync) — it is
+# force-uploaded via databricks.yml sync.include and deleted in cleanup below.
+mkdir -p mcp_app/backend/lib
+rm -f mcp_app/backend/lib/genesis_workbench-*.whl
+cp "$WHEEL" mcp_app/backend/lib/
+echo "Staged $WHEEL_NAME → mcp_app/backend/lib/"
+
 if ! grep -wq "$WHEEL_NAME" app/requirements.txt; then
     echo "⚠️  app/requirements.txt does not reference $WHEEL_NAME — update it to match the pyproject version."
+    exit 1
+fi
+if ! grep -wq "$WHEEL_NAME" mcp_app/requirements.txt; then
+    echo "⚠️  mcp_app/requirements.txt does not reference $WHEEL_NAME — update it to match the pyproject version."
     exit 1
 fi
 
@@ -185,17 +197,28 @@ echo ""
 
 databricks bundle run --target $TARGET genesis_workbench_app --var="$EXTRA_PARAMS"
 
+mcp_app_name=${mcp_app_name:-mcp-genesis-workbench}
+
 echo ""
-echo "▶️ Granting app service principal access to catalog"
+echo "▶️ Deploying MCP Application ($mcp_app_name)"
+echo ""
+
+databricks bundle run --target $TARGET mcp_genesis_workbench_app --var="$EXTRA_PARAMS"
+
+echo ""
+echo "▶️ Granting app service principals access to catalog"
 echo ""
 
 app_sp_id=$(databricks apps get $app_name --output json | jq -r '.service_principal_client_id')
-echo "App service principal: $app_sp_id"
+mcp_app_sp_id=$(databricks apps get $mcp_app_name --output json | jq -r '.service_principal_client_id')
+echo "App service principals: $app_sp_id (UI), $mcp_app_sp_id (MCP)"
 
-databricks grants update catalog $core_catalog_name --json "{\"changes\": [{\"principal\": \"$app_sp_id\", \"add\": [\"USE_CATALOG\"]}]}"
-databricks grants update schema $core_catalog_name.$core_schema_name --json "{\"changes\": [{\"principal\": \"$app_sp_id\", \"add\": [\"USE_SCHEMA\", \"SELECT\", \"MODIFY\"]}]}"
+for sp in "$app_sp_id" "$mcp_app_sp_id"; do
+    databricks grants update catalog $core_catalog_name --json "{\"changes\": [{\"principal\": \"$sp\", \"add\": [\"USE_CATALOG\"]}]}"
+    databricks grants update schema $core_catalog_name.$core_schema_name --json "{\"changes\": [{\"principal\": \"$sp\", \"add\": [\"USE_SCHEMA\", \"SELECT\", \"MODIFY\"]}]}"
+done
 
-echo "Catalog and schema permissions granted."
+echo "Catalog and schema permissions granted (both apps)."
 
 echo ""
 echo "▶️ Granting app permissions for endpoints, jobs, volumes, models"
@@ -206,7 +229,7 @@ echo ""
 # resource. Safe to re-run on every deploy; new resources get reconciled then.
 # NOTE: the genesis_workbench wheel is copied to the UC Volume earlier (right
 # after `bundle deploy`) because this serverless job %pip-installs it from there.
-databricks bundle run --target $TARGET grant_app_permissions_job --var="$EXTRA_PARAMS"
+databricks bundle run --target $TARGET grant_app_permissions_job --var="$EXTRA_PARAMS,app_names=$app_name:$mcp_app_name"
 
 echo ""
 echo "▶️ Cleaning up local build artifacts"
@@ -218,5 +241,6 @@ echo ""
 # be present at deploy time and deleted here afterwards.
 rm -rf library/genesis_workbench/dist
 rm -f app/backend/lib/genesis_workbench-*.whl
+rm -f mcp_app/backend/lib/genesis_workbench-*.whl
 
 date +"%Y-%m-%d %H:%M:%S" > .deployed

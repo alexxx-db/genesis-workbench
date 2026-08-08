@@ -24,13 +24,14 @@ targets:
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
+                  zone_id: auto
         run_enzyme_optimization_inprocess_ame:
           job_clusters:
             - job_cluster_key: enzyme_optimization_a10_gpu_cluster
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
-
+                  zone_id: auto
   prod_azure:
     mode: production
     workspace:

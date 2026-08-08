@@ -49,6 +49,28 @@ MODULES = {
         description="Administrative settings and configuration",
         submodules=["settings"],
     ),
+    # Capability modules gated by the MCP server's per-caller authorization
+    # (mcp_authz, HARDENING_CHECKLIST.md 2.1). Registered here so the same
+    # AppPermissionsManager grants / setup notebook seeding cover them —
+    # large_molecule and single_cell above already double as both.
+    "small_molecule": ModuleConfig(
+        name="small_molecule",
+        display_name="Small Molecule",
+        description="Small-molecule capabilities (ADMET, generation, retrosynthesis)",
+        submodules=[],
+    ),
+    "genomics": ModuleConfig(
+        name="genomics",
+        display_name="Genomics",
+        description="Genomics capabilities (alignment, GWAS, variant annotation)",
+        submodules=[],
+    ),
+    "core": ModuleConfig(
+        name="core",
+        display_name="Core",
+        description="Capabilities that declare no module (MCP fallback gate)",
+        submodules=[],
+    ),
 }
 
 PERMISSION_TYPES = {

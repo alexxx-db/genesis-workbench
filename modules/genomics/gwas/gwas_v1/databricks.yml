@@ -24,19 +24,21 @@ targets:
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
+                  zone_id: auto
         gwas_analysis:
           job_clusters:
             - job_cluster_key: gwas_spark_cluster
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
+                  zone_id: auto
         parabricks_alignment:
           job_clusters:
             - job_cluster_key: parabricks_gpu_cluster
               new_cluster:
                 aws_attributes:
                   availability: ON_DEMAND
-
+                  zone_id: auto
   prod_azure:
     mode: production
     workspace:
