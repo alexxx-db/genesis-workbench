@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "data_sources": {
+    "tables": [
+      { "identifier": "${CATALOG}.${SCHEMA}.cellxgene_cell_counts" },
+      { "identifier": "${CATALOG}.${SCHEMA}.gene_sequences" },
+      { "identifier": "${CATALOG}.${SCHEMA}.repurposing_hub" },
+      { "identifier": "${CATALOG}.${SCHEMA}.target_binders" }
+    ]
+  }
+}

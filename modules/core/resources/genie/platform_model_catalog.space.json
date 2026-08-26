@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "data_sources": {
+    "tables": [
+      { "identifier": "${CATALOG}.${SCHEMA}.app_permissions" },
+      { "identifier": "${CATALOG}.${SCHEMA}.batch_models" },
+      { "identifier": "${CATALOG}.${SCHEMA}.model_deployments" },
+      { "identifier": "${CATALOG}.${SCHEMA}.models" },
+      { "identifier": "${CATALOG}.${SCHEMA}.node_catalog" }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+resources:
+  dashboards:
+    gwb_inference_observability:
+      display_name: "Genesis Workbench — Model Serving Observability"
+      warehouse_id: ${var.sql_warehouse_id}
+      file_path: gwb_inference_observability.lvdash.json
+      permissions:
+        - user_name: ${var.current_user}
+          level: CAN_MANAGE
+
+      # NOTE: reads <core_catalog>.<core_schema>.v_inference_log,
+      # which prepare_analytics_assets_job builds from the per-endpoint AI Gateway
+      # capture tables. Those tables only gain a real schema after an endpoint's first
+      # captured request, so run that job once the endpoints have served traffic
+      # (scripts/seed_demo_inference.py can generate some) or this dashboard renders empty.

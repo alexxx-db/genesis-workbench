@@ -145,6 +145,15 @@ fi
 echo "Extra Params: $EXTRA_PARAMS"
 
 echo ""
+echo "▶️ Rendering dashboard templates"
+echo ""
+# Dashboards whose queries reference the GWB catalog/schema are kept as .tmpl —
+# DAB cannot interpolate ${var.*} inside a dashboard file (terraform reads it as
+# its own syntax and fails). Render them to concrete JSON before deploying.
+chmod +x resources/dashboards/render_dashboards.sh
+./resources/dashboards/render_dashboards.sh "$core_catalog_name" "$core_schema_name"
+
+echo ""
 echo "▶️ Validating bundle"
 echo ""
 
