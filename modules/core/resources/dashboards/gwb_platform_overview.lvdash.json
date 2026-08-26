@@ -1,0 +1,729 @@
+{
+  "datasets": [
+    {
+      "name": "ffb6dc6d",
+      "displayName": "Platform KPIs",
+      "queryLines": [
+        "SELECT\n",
+        "  (SELECT count(*) FROM alexxx.genesis_workbench.models            WHERE is_active) AS registered_models,\n",
+        "  (SELECT count(*) FROM alexxx.genesis_workbench.model_deployments WHERE is_active) AS live_endpoints,\n",
+        "  (SELECT count(*) FROM alexxx.genesis_workbench.node_catalog      WHERE is_active) AS workflow_nodes,\n",
+        "  (SELECT count(*) FROM alexxx.genesis_workbench.sequence_db)                       AS reference_sequences,\n",
+        "  (SELECT count(*) FROM alexxx.genesis_workbench.gene_sequences)                    AS human_proteins,\n",
+        "  (SELECT count(*) FROM alexxx.genesis_workbench.repurposing_hub)                   AS drugs\n"
+      ]
+    },
+    {
+      "name": "3315323e",
+      "displayName": "Models by module",
+      "queryLines": [
+        "SELECT\n",
+        "  model_category AS module,\n",
+        "  count(*)                                              AS registered,\n",
+        "  sum(CASE WHEN is_model_deployed THEN 1 ELSE 0 END)    AS deployed\n",
+        "FROM alexxx.genesis_workbench.models\n",
+        "WHERE is_active\n",
+        "GROUP BY model_category\n",
+        "ORDER BY registered DESC\n"
+      ]
+    },
+    {
+      "name": "81b69a20",
+      "displayName": "Drugs by clinical phase",
+      "queryLines": [
+        "SELECT\n",
+        "  coalesce(nullif(trim(clinical_phase), ''), 'Unspecified') AS clinical_phase,\n",
+        "  count(*)                                                  AS drugs\n",
+        "FROM alexxx.genesis_workbench.repurposing_hub\n",
+        "GROUP BY 1\n",
+        "ORDER BY drugs DESC\n"
+      ]
+    },
+    {
+      "name": "46f22f2a",
+      "displayName": "Model catalog",
+      "queryLines": [
+        "SELECT\n",
+        "  m.model_display_name  AS model,\n",
+        "  m.model_category      AS module,\n",
+        "  m.model_source_version AS version,\n",
+        "  m.model_uc_name       AS unity_catalog_model,\n",
+        "  m.is_model_deployed   AS deployed,\n",
+        "  m.model_added_by      AS added_by,\n",
+        "  m.model_added_date    AS added\n",
+        "FROM alexxx.genesis_workbench.models m\n",
+        "WHERE m.is_active\n",
+        "ORDER BY m.model_category, m.model_display_name\n"
+      ]
+    },
+    {
+      "name": "233b07dc",
+      "displayName": "Live serving endpoints",
+      "queryLines": [
+        "SELECT\n",
+        "  d.model_endpoint_name AS endpoint,\n",
+        "  m.model_display_name  AS model,\n",
+        "  m.model_category      AS module,\n",
+        "  d.model_deployed_by   AS deployed_by,\n",
+        "  d.model_deployed_date AS deployed\n",
+        "FROM alexxx.genesis_workbench.model_deployments d\n",
+        "LEFT JOIN alexxx.genesis_workbench.models m ON m.model_id = d.model_id\n",
+        "WHERE d.is_active\n",
+        "ORDER BY d.model_deployed_date DESC\n"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "b2c5e27d",
+      "displayName": "Platform Overview",
+      "layout": [
+        {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          },
+          "widget": {
+            "name": "a9f7e979",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ffb6dc6d",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`registered_models`",
+                      "name": "registered_models"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "registered_models",
+                  "displayName": "Registered models"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Registered models"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          },
+          "widget": {
+            "name": "9ab62b5e",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ffb6dc6d",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`live_endpoints`",
+                      "name": "live_endpoints"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "live_endpoints",
+                  "displayName": "Live endpoints"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Live endpoints"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          },
+          "widget": {
+            "name": "0a3d7213",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ffb6dc6d",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`workflow_nodes`",
+                      "name": "workflow_nodes"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "workflow_nodes",
+                  "displayName": "Workflow nodes"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Workflow nodes"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 3,
+            "height": 6
+          },
+          "widget": {
+            "name": "edbab455",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "3315323e",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`module`",
+                      "name": "module"
+                    },
+                    {
+                      "expression": "SUM(`registered`)",
+                      "name": "sum(registered)"
+                    },
+                    {
+                      "expression": "SUM(`deployed`)",
+                      "name": "sum(deployed)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "module",
+                  "displayName": "module",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fields": [
+                    {
+                      "fieldName": "sum(registered)",
+                      "displayName": "registered"
+                    },
+                    {
+                      "fieldName": "sum(deployed)",
+                      "displayName": "deployed"
+                    }
+                  ],
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "axis": {
+                    "title": ""
+                  }
+                },
+                "color": {
+                  "legend": {
+                    "hide": false
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Models registered vs deployed, by module"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 3,
+            "y": 3,
+            "width": 3,
+            "height": 6
+          },
+          "widget": {
+            "name": "fbfba2e4",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "81b69a20",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`clinical_phase`",
+                      "name": "clinical_phase"
+                    },
+                    {
+                      "expression": "SUM(`drugs`)",
+                      "name": "sum(drugs)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "clinical_phase",
+                  "displayName": "clinical phase",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fields": [
+                    {
+                      "fieldName": "sum(drugs)",
+                      "displayName": "drugs"
+                    }
+                  ],
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "axis": {
+                    "title": ""
+                  }
+                },
+                "color": {
+                  "legend": {
+                    "hide": true
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Repurposing Hub drugs by clinical phase"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 2,
+            "height": 3
+          },
+          "widget": {
+            "name": "cb7524d7",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ffb6dc6d",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`reference_sequences`",
+                      "name": "reference_sequences"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "reference_sequences",
+                  "displayName": "Reference sequences"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Reference sequences"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 2,
+            "y": 9,
+            "width": 2,
+            "height": 3
+          },
+          "widget": {
+            "name": "25ea1682",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ffb6dc6d",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`human_proteins`",
+                      "name": "human_proteins"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "human_proteins",
+                  "displayName": "Human proteins"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Human proteins"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 4,
+            "y": 9,
+            "width": 2,
+            "height": 3
+          },
+          "widget": {
+            "name": "5a34d1ed",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ffb6dc6d",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`drugs`",
+                      "name": "drugs"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "drugs",
+                  "displayName": "Drugs (Repurposing Hub)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Drugs (Repurposing Hub)"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 12,
+            "width": 6,
+            "height": 7
+          },
+          "widget": {
+            "name": "83f1535f",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "46f22f2a",
+                  "disaggregated": true,
+                  "fields": [
+                    {
+                      "expression": "`model`",
+                      "name": "model"
+                    },
+                    {
+                      "expression": "`module`",
+                      "name": "module"
+                    },
+                    {
+                      "expression": "`version`",
+                      "name": "version"
+                    },
+                    {
+                      "expression": "`unity_catalog_model`",
+                      "name": "unity_catalog_model"
+                    },
+                    {
+                      "expression": "`deployed`",
+                      "name": "deployed"
+                    },
+                    {
+                      "expression": "`added_by`",
+                      "name": "added_by"
+                    },
+                    {
+                      "expression": "`added`",
+                      "name": "added"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "model",
+                    "displayName": "model",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 0
+                  },
+                  {
+                    "fieldName": "module",
+                    "displayName": "module",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 1
+                  },
+                  {
+                    "fieldName": "version",
+                    "displayName": "version",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 2
+                  },
+                  {
+                    "fieldName": "unity_catalog_model",
+                    "displayName": "unity catalog model",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 3
+                  },
+                  {
+                    "fieldName": "deployed",
+                    "displayName": "deployed",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 4
+                  },
+                  {
+                    "fieldName": "added_by",
+                    "displayName": "added by",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 5
+                  },
+                  {
+                    "fieldName": "added",
+                    "displayName": "added",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 6
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Model catalog"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 19,
+            "width": 6,
+            "height": 6
+          },
+          "widget": {
+            "name": "0f826a89",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "233b07dc",
+                  "disaggregated": true,
+                  "fields": [
+                    {
+                      "expression": "`endpoint`",
+                      "name": "endpoint"
+                    },
+                    {
+                      "expression": "`model`",
+                      "name": "model"
+                    },
+                    {
+                      "expression": "`module`",
+                      "name": "module"
+                    },
+                    {
+                      "expression": "`deployed_by`",
+                      "name": "deployed_by"
+                    },
+                    {
+                      "expression": "`deployed`",
+                      "name": "deployed"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "endpoint",
+                    "displayName": "endpoint",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 0
+                  },
+                  {
+                    "fieldName": "model",
+                    "displayName": "model",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 1
+                  },
+                  {
+                    "fieldName": "module",
+                    "displayName": "module",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 2
+                  },
+                  {
+                    "fieldName": "deployed_by",
+                    "displayName": "deployed by",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 3
+                  },
+                  {
+                    "fieldName": "deployed",
+                    "displayName": "deployed",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 4
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Live serving endpoints"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    }
+  }
+}

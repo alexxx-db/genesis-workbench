@@ -1,0 +1,9 @@
+resources:
+  dashboards:
+    gwb_platform_overview:
+      display_name: "Genesis Workbench — Platform Overview"
+      warehouse_id: ${var.sql_warehouse_id}
+      file_path: gwb_platform_overview.lvdash.json
+      permissions:
+        - user_name: ${var.current_user}
+          level: CAN_MANAGE

@@ -1,0 +1,577 @@
+{
+  "datasets": [
+    {
+      "name": "46c5d4c9",
+      "displayName": "Inference KPIs",
+      "queryLines": [
+        "SELECT\n",
+        "  count(*)                                                          AS requests,\n",
+        "  count(DISTINCT endpoint)                                          AS endpoints_used,\n",
+        "  round(100.0 * sum(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END)\n",
+        "        / nullif(count(*), 0), 2)                                   AS error_rate_pct,\n",
+        "  round(percentile_approx(execution_duration_ms, 0.50))             AS p50_latency_ms,\n",
+        "  round(percentile_approx(execution_duration_ms, 0.95))             AS p95_latency_ms\n",
+        "FROM __CATALOG__.__SCHEMA__.v_inference_log\n"
+      ]
+    },
+    {
+      "name": "9c29b089",
+      "displayName": "Requests by endpoint",
+      "queryLines": [
+        "SELECT\n",
+        "  endpoint,\n",
+        "  count(*)                                              AS requests,\n",
+        "  round(percentile_approx(execution_duration_ms, 0.95)) AS p95_latency_ms\n",
+        "FROM __CATALOG__.__SCHEMA__.v_inference_log\n",
+        "GROUP BY endpoint\n",
+        "ORDER BY requests DESC\n"
+      ]
+    },
+    {
+      "name": "55c835b5",
+      "displayName": "Requests over time",
+      "queryLines": [
+        "SELECT\n",
+        "  date_trunc('HOUR', request_time) AS hour,\n",
+        "  endpoint,\n",
+        "  count(*)                         AS requests\n",
+        "FROM __CATALOG__.__SCHEMA__.v_inference_log\n",
+        "GROUP BY 1, 2\n",
+        "ORDER BY 1\n"
+      ]
+    },
+    {
+      "name": "73608483",
+      "displayName": "Recent requests",
+      "queryLines": [
+        "SELECT\n",
+        "  request_time,\n",
+        "  endpoint,\n",
+        "  status_code,\n",
+        "  execution_duration_ms,\n",
+        "  client_request_id,\n",
+        "  substr(request, 1, 160)  AS request_preview,\n",
+        "  substr(response, 1, 160) AS response_preview\n",
+        "FROM __CATALOG__.__SCHEMA__.v_inference_log\n",
+        "ORDER BY request_time DESC\n",
+        "LIMIT 200\n"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "2ca10a3d",
+      "displayName": "Model Serving Observability",
+      "layout": [
+        {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          },
+          "widget": {
+            "name": "f1584b99",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "46c5d4c9",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`requests`",
+                      "name": "requests"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "requests",
+                  "displayName": "Requests"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Requests"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          },
+          "widget": {
+            "name": "2d387ab9",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "46c5d4c9",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`endpoints_used`",
+                      "name": "endpoints_used"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "endpoints_used",
+                  "displayName": "Endpoints used"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Endpoints used"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          },
+          "widget": {
+            "name": "417c4fa3",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "46c5d4c9",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`error_rate_pct`",
+                      "name": "error_rate_pct"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "error_rate_pct",
+                  "displayName": "Error rate (%)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Error rate (%)"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 2,
+            "height": 3
+          },
+          "widget": {
+            "name": "500dbb50",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "46c5d4c9",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`p50_latency_ms`",
+                      "name": "p50_latency_ms"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "p50_latency_ms",
+                  "displayName": "p50 latency (ms)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "p50 latency (ms)"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 2,
+            "y": 3,
+            "width": 2,
+            "height": 3
+          },
+          "widget": {
+            "name": "46fa5a23",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "46c5d4c9",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`p95_latency_ms`",
+                      "name": "p95_latency_ms"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "p95_latency_ms",
+                  "displayName": "p95 latency (ms)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "p95 latency (ms)"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 6
+          },
+          "widget": {
+            "name": "39d987fd",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "55c835b5",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`hour`",
+                      "name": "hour"
+                    },
+                    {
+                      "expression": "`endpoint`",
+                      "name": "endpoint"
+                    },
+                    {
+                      "expression": "SUM(`requests`)",
+                      "name": "sum(requests)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "hour",
+                  "displayName": "hour",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(requests)",
+                  "displayName": "requests",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "axis": {
+                    "title": ""
+                  }
+                },
+                "color": {
+                  "fieldName": "endpoint",
+                  "displayName": "endpoint",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "legend": {
+                    "hide": false
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Requests per hour, by endpoint"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 12,
+            "width": 3,
+            "height": 6
+          },
+          "widget": {
+            "name": "5e749466",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "9c29b089",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`endpoint`",
+                      "name": "endpoint"
+                    },
+                    {
+                      "expression": "SUM(`requests`)",
+                      "name": "sum(requests)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "endpoint",
+                  "displayName": "endpoint",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(requests)",
+                  "displayName": "requests",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "axis": {
+                    "title": ""
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Requests by endpoint"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 3,
+            "y": 12,
+            "width": 3,
+            "height": 6
+          },
+          "widget": {
+            "name": "6a465704",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "9c29b089",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`endpoint`",
+                      "name": "endpoint"
+                    },
+                    {
+                      "expression": "SUM(`p95_latency_ms`)",
+                      "name": "sum(p95_latency_ms)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "endpoint",
+                  "displayName": "endpoint",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(p95_latency_ms)",
+                  "displayName": "p95 latency ms",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "axis": {
+                    "title": ""
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "p95 latency by endpoint (ms)"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 18,
+            "width": 6,
+            "height": 8
+          },
+          "widget": {
+            "name": "ab0fd361",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "73608483",
+                  "disaggregated": true,
+                  "fields": [
+                    {
+                      "expression": "`request_time`",
+                      "name": "request_time"
+                    },
+                    {
+                      "expression": "`endpoint`",
+                      "name": "endpoint"
+                    },
+                    {
+                      "expression": "`status_code`",
+                      "name": "status_code"
+                    },
+                    {
+                      "expression": "`execution_duration_ms`",
+                      "name": "execution_duration_ms"
+                    },
+                    {
+                      "expression": "`client_request_id`",
+                      "name": "client_request_id"
+                    },
+                    {
+                      "expression": "`request_preview`",
+                      "name": "request_preview"
+                    },
+                    {
+                      "expression": "`response_preview`",
+                      "name": "response_preview"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "request_time",
+                    "displayName": "request time",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 0
+                  },
+                  {
+                    "fieldName": "endpoint",
+                    "displayName": "endpoint",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 1
+                  },
+                  {
+                    "fieldName": "status_code",
+                    "displayName": "status code",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 2
+                  },
+                  {
+                    "fieldName": "execution_duration_ms",
+                    "displayName": "execution duration ms",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 3
+                  },
+                  {
+                    "fieldName": "client_request_id",
+                    "displayName": "client request id",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 4
+                  },
+                  {
+                    "fieldName": "request_preview",
+                    "displayName": "request preview",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 5
+                  },
+                  {
+                    "fieldName": "response_preview",
+                    "displayName": "response preview",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 6
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Recent requests (captured payloads)"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    }
+  }
+}

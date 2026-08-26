@@ -29,7 +29,7 @@
         "  usage_quantity AS DBUs, \n",
         "  billing_origin_product AS product, \n",
         "  product_features['is_serverless'] AS serverless,\n",
-        "  termination_code\n",
+        "  COALESCE(termination_code, 'N/A') AS termination_code\n",
         "FROM ranked_timeline\n",
         "WHERE rn = 1\n",
         "ORDER BY usage_date DESC"

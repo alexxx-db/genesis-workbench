@@ -1,0 +1,42 @@
+resources:
+  jobs:
+    prepare_analytics_assets_job:
+      name: prepare_analytics_assets_gwb
+
+      email_notifications:
+        on_failure:
+          - ${var.current_user}
+
+      tasks:
+        # Genie answers from Unity Catalog metadata — without comments it guesses
+        # from column names, which is the main source of wrong SQL.
+        - task_key: annotate_uc_metadata_task
+          disable_auto_optimization: true
+          notebook_task:
+            notebook_path: ../../notebooks/annotate_uc_metadata.py
+          max_retries: 0
+
+        # Collapses the per-endpoint *_serving_payload capture tables into one
+        # v_inference_log view for the observability dashboard. Runs second so a
+        # freshly-annotated schema is what the view is built over.
+        - task_key: build_inference_log_view_task
+          disable_auto_optimization: true
+          depends_on:
+            - task_key: annotate_uc_metadata_task
+          notebook_task:
+            notebook_path: ../../notebooks/build_inference_log_view.py
+          max_retries: 0
+
+      # Metadata + view DDL only — serverless is enough.
+      environments:
+        - environment_key: default
+          spec:
+            client: '4'
+
+      parameters:
+        - name: catalog
+          default: ${var.core_catalog_name}
+        - name: schema
+          default: ${var.core_schema_name}
+
+      tags: ${var.common_resource_tags}
