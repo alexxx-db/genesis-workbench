@@ -1,14 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
+import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 
+import { api } from '@/api/client'
+import { RunSearchSection } from '@/components/RunSearchSection'
+import { ChainRunResult } from '@/components/ChainRunResult'
 import { ClipboardPaste } from '@/components/ClipboardPaste'
-import { DataTable } from '@/components/DataTable'
-import { MaterialIcon } from '@/components/MaterialIcon'
-import { MolstarViewer } from '@/components/MolstarViewer'
-import { RealtimeProgress } from '@/components/RealtimeProgress'
-import { useSseMutation } from '@/hooks/useSseMutation'
-import { useClipboard } from '@/stores/clipboard'
-import type { LigandBinderDesign, LigandBinderDesignResponse } from '@/types/api'
 import { cn } from '@/lib/utils'
 
 type InputMode = 'smiles' | 'pdb'
@@ -32,11 +28,6 @@ function ts(): string {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-type ViewChoice =
-  | 'ca_backbone'
-  | 'esmfold'
-  | 'ca_plus_dock'
-  | 'esmfold_plus_dock'
 
 export function LigandBinderDesignTab() {
   const [inputMode, setInputMode] = useState<InputMode>('smiles')
@@ -50,27 +41,29 @@ export function LigandBinderDesignTab() {
   const [experiment, setExperiment] = useState('gwb_ligand_binder_design')
   const [runName, setRunName] = useState(`ligand_binder_${ts()}`)
 
-  const [selectedIdx, setSelectedIdx] = useState(0)
-  const [viewChoice, setViewChoice] = useState<ViewChoice>('esmfold_plus_dock')
 
-  const design = useSseMutation<
-    {
-      ligand_pdb?: string | null
-      ligand_smiles?: string | null
-      binder_length_min: number
-      binder_length_max: number
-      num_samples: number
-      validate_esmfold: boolean
-      validate_diffdock: boolean
-      mlflow_experiment: string
-      mlflow_run_name: string
-    },
-    LigandBinderDesignResponse
-  >('/api/small_molecule/ligand_binder_design/stream')
-
-  useEffect(() => {
-    if (design.data?.designs?.length) setSelectedIdx(0)
-  }, [design.data])
+  // Dispatched as a Databricks job: this pipeline outlives the browser
+  // connection, and a dropped connection used to lose a result that had in fact
+  // completed and been logged to MLflow.
+  const [searchToken, setSearchToken] = useState(0)
+  const design = useMutation({
+    mutationFn: () =>
+      api.chainStart({
+        feature: 'ligand_binder_design',
+        inputs: { ligand_pdb: inputMode === 'pdb' ? ligandPdb : '' },
+        params: {
+          binder_length_min: lenMin,
+          binder_length_max: lenMax,
+          num_samples: numSamples,
+          validate_esmfold: validateEsmfold,
+          validate_diffdock: validateDiffdock,
+          ligand_smiles: smiles || '',
+        },
+        mlflow_run_name: runName,
+        mlflow_experiment: experiment,
+      }),
+    onSuccess: () => setSearchToken((t) => t + 1),
+  })
 
   const canRun =
     !design.isPending &&
@@ -81,120 +74,12 @@ export function LigandBinderDesignTab() {
     // DiffDock validation needs a SMILES regardless of input mode.
     (!validateDiffdock || smiles.trim().length > 0)
 
-  const runDesign = () =>
-    design.start({
-      ligand_pdb: inputMode === 'pdb' ? ligandPdb : null,
-      ligand_smiles: smiles || null,
-      binder_length_min: lenMin,
-      binder_length_max: lenMax,
-      num_samples: numSamples,
-      validate_esmfold: validateEsmfold,
-      validate_diffdock: validateDiffdock,
-      mlflow_experiment: experiment,
-      mlflow_run_name: runName,
-    })
+  const runDesign = () => design.mutate()
 
-  const selectedDesign = useMemo<LigandBinderDesign | null>(() => {
-    if (!design.data?.designs?.length) return null
-    return design.data.designs[selectedIdx] ?? null
-  }, [design.data, selectedIdx])
 
-  const availableViews = useMemo<ViewChoice[]>(() => {
-    if (!selectedDesign) return []
-    const v: ViewChoice[] = []
-    if (selectedDesign.viewer_html_ca_backbone) v.push('ca_backbone')
-    if (selectedDesign.viewer_html_esmfold) v.push('esmfold')
-    if (selectedDesign.viewer_html_ca_plus_dock) v.push('ca_plus_dock')
-    if (selectedDesign.viewer_html_esmfold_plus_dock) v.push('esmfold_plus_dock')
-    return v
-  }, [selectedDesign])
 
-  // When the selected design changes, pick the richest available view.
-  useEffect(() => {
-    if (!availableViews.length) return
-    if (availableViews.includes(viewChoice)) return
-    const preferred: ViewChoice[] = [
-      'esmfold_plus_dock',
-      'ca_plus_dock',
-      'esmfold',
-      'ca_backbone',
-    ]
-    setViewChoice(preferred.find((p) => availableViews.includes(p)) ?? availableViews[0])
-  }, [availableViews, viewChoice])
 
-  const viewerHtml = useMemo<string | null>(() => {
-    if (!selectedDesign) return null
-    switch (viewChoice) {
-      case 'esmfold_plus_dock':
-        return selectedDesign.viewer_html_esmfold_plus_dock
-      case 'ca_plus_dock':
-        return selectedDesign.viewer_html_ca_plus_dock
-      case 'esmfold':
-        return selectedDesign.viewer_html_esmfold
-      case 'ca_backbone':
-      default:
-        return selectedDesign.viewer_html_ca_backbone
-    }
-  }, [selectedDesign, viewChoice])
 
-  const clipAdd = useClipboard((s) => s.add)
-  const clipItems = useClipboard((s) => s.items)
-  const clipSeqSet = useMemo(
-    () => new Set(clipItems.filter((i) => i.kind === 'sequence').map((i) => i.value)),
-    [clipItems],
-  )
-
-  const tableColumns = useMemo<ColumnDef<LigandBinderDesign, unknown>[]>(
-    () => [
-      { id: 'sample_id', header: 'Sample', accessorKey: 'sample_id' },
-      {
-        id: 'sequence',
-        header: 'Sequence',
-        cell: (ctx) => {
-          const s = ctx.row.original.sequence
-          return s.length > 50 ? s.slice(0, 50) + '…' : s
-        },
-        meta: {
-          thClass: 'min-w-[260px]',
-          tdClass: 'whitespace-normal break-all font-mono text-[10px]',
-        },
-      },
-      { id: 'rewards', header: 'Reward', accessorFn: (r) => r.rewards.toFixed(4) },
-      {
-        id: 'dock_confidence',
-        header: 'Dock conf.',
-        cell: (ctx) =>
-          ctx.row.original.dock_confidence != null
-            ? ctx.row.original.dock_confidence.toFixed(4)
-            : <span className="text-muted-foreground">—</span>,
-      },
-      {
-        id: 'clip',
-        header: '',
-        cell: (ctx) => {
-          const seq = ctx.row.original.sequence
-          return (
-            <button
-              type="button"
-              onClick={() =>
-                clipAdd({ kind: 'sequence', value: seq, label: ctx.row.original.sample_id, source: 'Ligand Binder Design' })
-              }
-              title="Copy this designed binder sequence to the Clipboard"
-              className="inline-flex items-center gap-1 rounded-md border border-primary/50 bg-primary/10 px-2 py-0.5 text-xs text-primary hover:bg-primary/20"
-            >
-              <MaterialIcon name="assignment" className="text-[14px] text-cyan-400" />
-              {clipSeqSet.has(seq) ? '✓' : 'Clip'}
-            </button>
-          )
-        },
-      },
-    ],
-    [clipAdd, clipSeqSet],
-  )
-
-  const mlflowUrl = design.data
-    ? `${window.location.protocol}//${window.location.host.replace(/-\d+\.aws\.databricksapps\.com$/, '')}/ml/experiments/${design.data.experiment_id}/runs/${design.data.run_id}`
-    : null
 
   return (
     <div className="space-y-4">
@@ -376,138 +261,41 @@ export function LigandBinderDesignTab() {
           </div>
         </div>
 
-        {/* Right viewer + results */}
+        {/* Right: dispatch banner + Search Past Runs. The run appears here
+            immediately and refreshes itself, so a closed tab or a dropped
+            connection no longer costs you the result. */}
         <div className="space-y-3">
-          {design.isPending && (
-            <RealtimeProgress
-              title={`Generating ${numSamples} binder${numSamples > 1 ? 's' : ''}`}
-              pct={design.progress?.pct ?? 0}
-              msg={design.progress?.msg ?? 'Starting…'}
-              stages={[
-                { label: 'SMILES → 3D coordinates (RDKit)', pctEnd: 15 },
-                { label: 'Generating protein binders (Proteina-Complexa-Ligand)', pctEnd: 35 },
-                { label: 'Validating designs (ESMFold)', pctEnd: 60 },
-                { label: 'Docking ligand back to designs (DiffDock)', pctEnd: 90 },
-                { label: 'Building viewers + logging', pctEnd: 100 },
-              ]}
-            />
+          {design.isSuccess && design.data && (
+            <div className="rounded-md border border-success/40 bg-success/10 p-3 text-xs">
+              <p className="font-medium text-success">Job launched</p>
+              <p className="mt-1 text-muted-foreground">
+                Run <span className="font-mono">{runName}</span> is queued. It appears
+                below and updates on its own — you can close this tab.
+              </p>
+              {design.data.job_run_url && (
+                <a href={design.data.job_run_url} target="_blank" rel="noreferrer"
+                   className="mt-1 inline-block text-primary underline">
+                  Open the job run
+                </a>
+              )}
+            </div>
           )}
-
-          {design.error && (
-            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {design.isError && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
               {String(design.error)}
             </div>
           )}
 
-          {design.data?.warnings?.map((w, i) => (
-            <div
-              key={i}
-              className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200"
-            >
-              {w}
-            </div>
-          ))}
-
-          {design.data && design.data.designs.length === 0 && (
-            <div className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-              Proteina-Complexa-Ligand returned no designs.
-            </div>
-          )}
-
-          {design.data && design.data.designs.length > 0 && (
-            <>
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="block text-xs">
-                  <span className="mb-1 block uppercase tracking-wide text-muted-foreground">
-                    Design
-                  </span>
-                  <select
-                    value={selectedIdx}
-                    onChange={(e) => setSelectedIdx(parseInt(e.target.value))}
-                    className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-                  >
-                    {design.data.designs.map((d, i) => (
-                      <option key={i} value={i}>
-                        Design {d.sample_id || i + 1} — Reward {d.rewards.toFixed(4)}
-                        {d.dock_confidence != null ? ` · Dock ${d.dock_confidence.toFixed(3)}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="block text-xs">
-                  <span className="mb-1 block uppercase tracking-wide text-muted-foreground">
-                    View
-                  </span>
-                  <div className="flex flex-wrap gap-1">
-                    {(
-                      [
-                        ['esmfold_plus_dock', 'Full + docked ligand'],
-                        ['ca_plus_dock', 'CA + docked ligand'],
-                        ['esmfold', 'Full protein'],
-                        ['ca_backbone', 'CA backbone'],
-                      ] as const
-                    )
-                      .filter(([id]) => availableViews.includes(id))
-                      .map(([id, label]) => (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => setViewChoice(id)}
-                          className={cn(
-                            'rounded-md border px-3 py-2 text-xs transition-colors',
-                            viewChoice === id
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-border text-muted-foreground hover:bg-accent',
-                          )}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                  </div>
-                </label>
-
-                {mlflowUrl && (
-                  <a
-                    href={mlflowUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="ml-auto text-xs text-primary hover:underline"
-                  >
-                    View MLflow run ↗
-                  </a>
-                )}
-              </div>
-
-              <MolstarViewer viewerHtml={viewerHtml} height={520} />
-
-              {selectedDesign && (
-                <div>
-                  <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Designed sequence
-                  </div>
-                  <pre className="overflow-x-auto rounded-md border border-border bg-muted/30 p-3 font-mono text-[11px]">
-                    {selectedDesign.sequence}
-                  </pre>
-                </div>
-              )}
-
-              <details className="rounded-md border border-border">
-                <summary className="cursor-pointer px-4 py-2 text-sm">All designs</summary>
-                <div className="p-3">
-                  <DataTable columns={tableColumns} data={design.data.designs} />
-                </div>
-              </details>
-            </>
-          )}
-
-          {!design.isPending && !design.data && !design.error && (
-            <div className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-              Configure a ligand and run Design Ligand Binders. The pipeline generates ranked
-              protein binders, optionally folds each one with ESMFold, then re-docks the ligand
-              with DiffDock to show the predicted binding pose.
-            </div>
-          )}
+          <RunSearchSection
+            searchKey={['ligand_binder_design', 'runs']}
+            searchFn={api.chainSearch('ligand_binder_design')}
+            detailLabel="Designs"
+            detailColClass="min-w-[140px]"
+            initialText="ligand_binder"
+            viewableStatuses={['complete']}
+            searchToken={searchToken}
+            renderDialog={(run) => <ChainRunResult run={run} />}
+          />
         </div>
       </div>
     </div>

@@ -1,0 +1,61 @@
+resources:
+  jobs:
+    run_chain_job:
+      name: run_chain_gwb
+
+      email_notifications:
+        on_failure:
+          - ${var.current_user}
+
+      # Small CPU single-node box on purpose: every heavy step in the chain
+      # (ESMFold, Proteina-Complexa, validation folds) is a serving-endpoint
+      # call, so this cluster only orchestrates and marshals results.
+      job_clusters:
+        - job_cluster_key: chain_runner_cpu_cluster
+          new_cluster:
+            num_workers: 0
+            node_type_id: ${var.cpu_node_type}
+            driver_node_type_id: ${var.cpu_node_type}
+            spark_version: '15.4.x-scala2.12'
+            enable_elastic_disk: true
+            data_security_mode: SINGLE_USER
+            single_user_name: ${workspace.current_user.userName}
+            spark_conf:
+              spark.databricks.cluster.profile: singleNode
+              spark.master: local[*]
+            custom_tags:
+              ResourceClass: SingleNode
+
+      tasks:
+        - task_key: run_chain
+          max_retries: 0
+          job_cluster_key: chain_runner_cpu_cluster
+          notebook_task:
+            notebook_path: ../notebooks/01_run_chain.py
+
+      # Every input the dispatcher passes. mlflow_run_id is always declared so the
+      # orchestrator attaches to the run the dispatcher pre-created rather than
+      # opening a second one.
+      parameters:
+        - name: catalog
+          default: ${var.core_catalog_name}
+        - name: schema
+          default: ${var.core_schema_name}
+        - name: sql_warehouse_id
+          default: ${var.sql_warehouse_id}
+        - name: user_email
+          default: ${var.current_user}
+        - name: mlflow_experiment
+          default: gwb_binder_design
+        - name: mlflow_run_name
+          default: ""
+        - name: mlflow_run_id
+          default: ""
+        - name: chain
+          default: protein_binder_design
+        - name: inputs_json
+          default: "{}"
+        - name: params_json
+          default: "{}"
+
+      tags: ${var.common_resource_tags}

@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
+import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 
-import { DataTable } from '@/components/DataTable'
-import { MolstarViewer } from '@/components/MolstarViewer'
-import { RealtimeProgress } from '@/components/RealtimeProgress'
-import { useSseMutation } from '@/hooks/useSseMutation'
-import type { MotifScaffold, MotifScaffoldingResponse } from '@/types/api'
+import { api } from '@/api/client'
+import { RunSearchSection } from '@/components/RunSearchSection'
+import { ChainRunResult } from '@/components/ChainRunResult'
 
 const EXAMPLE_MOTIF_PDB = `ATOM      1  N   HIS B   1       5.123   8.456   2.345  1.00 15.00           N
 ATOM      2  CA  HIS B   1       5.891   7.234   2.789  1.00 15.00           C
@@ -53,26 +51,29 @@ export function MotifScaffoldingTab() {
   const [experiment, setExperiment] = useState('gwb_motif_scaffolding')
   const [runName, setRunName] = useState(`motif_scaffolding_${ts()}`)
 
-  const [selectedIdx, setSelectedIdx] = useState(0)
 
-  const job = useSseMutation<
-    {
-      motif_pdb: string
-      target_chain: string
-      scaffold_length_min: number
-      scaffold_length_max: number
-      num_samples: number
-      optimize_mpnn: boolean
-      validate_esmfold: boolean
-      mlflow_experiment: string
-      mlflow_run_name: string
-    },
-    MotifScaffoldingResponse
-  >('/api/small_molecule/motif_scaffolding/stream')
-
-  useEffect(() => {
-    if (job.data?.scaffolds?.length) setSelectedIdx(0)
-  }, [job.data])
+  // Dispatched as a Databricks job: this pipeline outlives the browser
+  // connection, and a dropped connection used to lose a result that had in fact
+  // completed and been logged to MLflow.
+  const [searchToken, setSearchToken] = useState(0)
+  const job = useMutation({
+    mutationFn: () =>
+      api.chainStart({
+        feature: 'motif_scaffolding',
+        inputs: { motif_pdb: motifPdb },
+        params: {
+          target_chain: targetChain,
+          scaffold_length_min: lenMin,
+          scaffold_length_max: lenMax,
+          num_samples: numSamples,
+          optimize_mpnn: optimizeMpnn,
+          validate_esmfold: validateEsmfold,
+        },
+        mlflow_run_name: runName,
+        mlflow_experiment: experiment,
+      }),
+    onSuccess: () => setSearchToken((t) => t + 1),
+  })
 
   const canRun =
     !job.isPending &&
@@ -82,61 +83,10 @@ export function MotifScaffoldingTab() {
     runName.trim() &&
     lenMin <= lenMax
 
-  const runJob = () =>
-    job.start({
-      motif_pdb: motifPdb,
-      target_chain: targetChain,
-      scaffold_length_min: lenMin,
-      scaffold_length_max: lenMax,
-      num_samples: numSamples,
-      optimize_mpnn: optimizeMpnn,
-      validate_esmfold: validateEsmfold,
-      mlflow_experiment: experiment,
-      mlflow_run_name: runName,
-    })
+  const runJob = () => job.mutate()
 
-  const selected = useMemo<MotifScaffold | null>(() => {
-    if (!job.data?.scaffolds?.length) return null
-    return job.data.scaffolds[selectedIdx] ?? null
-  }, [job.data, selectedIdx])
 
-  const tableColumns = useMemo<ColumnDef<MotifScaffold, unknown>[]>(
-    () => [
-      { id: 'sample_id', header: 'Sample', accessorKey: 'sample_id' },
-      {
-        id: 'sequence',
-        header: 'Sequence',
-        cell: (ctx) => {
-          const s = ctx.row.original.mpnn_sequence ?? ctx.row.original.sequence
-          return s.length > 50 ? s.slice(0, 50) + '…' : s
-        },
-        meta: {
-          thClass: 'min-w-[260px]',
-          tdClass: 'whitespace-normal break-all font-mono text-[10px]',
-        },
-      },
-      {
-        id: 'rewards',
-        header: 'Reward',
-        accessorFn: (r) => r.rewards.toFixed(4),
-      },
-      {
-        id: 'esmfold_validated',
-        header: 'ESMFold',
-        cell: (ctx) =>
-          ctx.row.original.esmfold_validated ? (
-            <span className="text-success">OK</span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
-      },
-    ],
-    [],
-  )
 
-  const mlflowUrl = job.data
-    ? `${window.location.protocol}//${window.location.host.replace(/-\d+\.aws\.databricksapps\.com$/, '')}/ml/experiments/${job.data.experiment_id}/runs/${job.data.run_id}`
-    : null
 
   return (
     <div className="space-y-4">
@@ -277,108 +227,41 @@ export function MotifScaffoldingTab() {
           </div>
         </div>
 
-        {/* Right viewer + results */}
+        {/* Right: dispatch banner + Search Past Runs. The run appears here
+            immediately and refreshes itself, so a closed tab or a dropped
+            connection no longer costs you the result. */}
         <div className="space-y-3">
-          {job.isPending && (
-            <RealtimeProgress
-              title={`Generating ${numSamples} scaffold${numSamples > 1 ? 's' : ''}`}
-              pct={job.progress?.pct ?? 0}
-              msg={job.progress?.msg ?? 'Starting…'}
-              stages={[
-                { label: 'Generating scaffolds (Proteina-Complexa-AME)', pctEnd: 35 },
-                { label: 'Optimising sequences (ProteinMPNN)', pctEnd: 60 },
-                { label: 'Validating each scaffold (ESMFold)', pctEnd: 90 },
-                { label: 'Building viewers + logging', pctEnd: 100 },
-              ]}
-            />
+          {job.isSuccess && job.data && (
+            <div className="rounded-md border border-success/40 bg-success/10 p-3 text-xs">
+              <p className="font-medium text-success">Job launched</p>
+              <p className="mt-1 text-muted-foreground">
+                Run <span className="font-mono">{runName}</span> is queued. It appears
+                below and updates on its own — you can close this tab.
+              </p>
+              {job.data.job_run_url && (
+                <a href={job.data.job_run_url} target="_blank" rel="noreferrer"
+                   className="mt-1 inline-block text-primary underline">
+                  Open the job run
+                </a>
+              )}
+            </div>
           )}
-
-          {job.error && (
-            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {job.isError && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
               {String(job.error)}
             </div>
           )}
 
-          {job.data?.warnings?.map((w, i) => (
-            <div
-              key={i}
-              className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200"
-            >
-              {w}
-            </div>
-          ))}
-
-          {job.data && job.data.scaffolds.length === 0 && (
-            <div className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-              Proteina-Complexa-AME returned no scaffolds.
-            </div>
-          )}
-
-          {job.data && job.data.scaffolds.length > 0 && (
-            <>
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="block text-xs">
-                  <span className="mb-1 block uppercase tracking-wide text-muted-foreground">
-                    Scaffold
-                  </span>
-                  <select
-                    value={selectedIdx}
-                    onChange={(e) => setSelectedIdx(parseInt(e.target.value))}
-                    className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-                  >
-                    {job.data.scaffolds.map((s, i) => (
-                      <option key={i} value={i}>
-                        Scaffold {s.sample_id || i + 1} — Reward {s.rewards.toFixed(4)}
-                        {s.esmfold_validated ? '' : '  (ESMFold n/a)'}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {mlflowUrl && (
-                  <a
-                    href={mlflowUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="ml-auto text-xs text-primary hover:underline"
-                  >
-                    View MLflow run ↗
-                  </a>
-                )}
-              </div>
-
-              <MolstarViewer viewerHtml={selected?.viewer_html ?? null} height={520} />
-
-              {selected && (
-                <div>
-                  <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                    {selected.mpnn_sequence
-                      ? 'Sequence (ProteinMPNN-optimised)'
-                      : 'Sequence'}
-                  </div>
-                  <pre className="overflow-x-auto rounded-md border border-border bg-muted/30 p-3 font-mono text-[11px]">
-                    {selected.mpnn_sequence ?? selected.sequence}
-                  </pre>
-                </div>
-              )}
-
-              <details className="rounded-md border border-border">
-                <summary className="cursor-pointer px-4 py-2 text-sm">All scaffolds</summary>
-                <div className="p-3">
-                  <DataTable columns={tableColumns} data={job.data.scaffolds} />
-                </div>
-              </details>
-            </>
-          )}
-
-          {!job.isPending && !job.data && !job.error && (
-            <div className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-              Paste a motif PDB (with the motif residues on the specified chain) and run
-              Generate Scaffolds. The pipeline keeps the motif geometry while sampling new
-              surrounding scaffolds; the viewer overlays the original motif with each
-              generated scaffold.
-            </div>
-          )}
+          <RunSearchSection
+            searchKey={['motif_scaffolding', 'runs']}
+            searchFn={api.chainSearch('motif_scaffolding')}
+            detailLabel="Scaffolds"
+            detailColClass="min-w-[140px]"
+            initialText="motif_scaffolding"
+            viewableStatuses={['complete']}
+            searchToken={searchToken}
+            renderDialog={(run) => <ChainRunResult run={run} />}
+          />
         </div>
       </div>
     </div>

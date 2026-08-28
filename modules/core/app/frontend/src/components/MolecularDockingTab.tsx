@@ -1,14 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import type { ColumnDef } from '@tanstack/react-table'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 
 import { api } from '@/api/client'
+import { RunSearchSection } from '@/components/RunSearchSection'
+import { ChainRunResult } from '@/components/ChainRunResult'
 import { ClipboardPaste } from '@/components/ClipboardPaste'
-import { DataTable } from '@/components/DataTable'
-import { MolstarViewer } from '@/components/MolstarViewer'
-import { RealtimeProgress } from '@/components/RealtimeProgress'
-import { useSseMutation } from '@/hooks/useSseMutation'
-import type { DockingPose, MolecularDockingResponse } from '@/types/api'
 import { StructurePicker } from '@/components/StructurePicker'
 
 function ts(): string {
@@ -30,7 +26,6 @@ export function MolecularDockingTab() {
   const [numSamples, setNumSamples] = useState(5)
   const [experiment, setExperiment] = useState('gwb_molecular_docking')
   const [runName, setRunName] = useState(`molecular_docking_${ts()}`)
-  const [selectedRank, setSelectedRank] = useState<number | null>(null)
 
   // Seed the form once the example payload loads.
   useEffect(() => {
@@ -39,71 +34,28 @@ export function MolecularDockingTab() {
     setProteinPdb((cur) => cur || example.data!.pdb)
   }, [example.data])
 
-  const dock = useSseMutation<
-    {
-      protein_pdb: string
-      ligand_smiles: string
-      num_samples: number
-      mlflow_experiment: string
-      mlflow_run_name: string
-    },
-    MolecularDockingResponse
-  >('/api/small_molecule/diffdock/stream')
+  // Dispatched as a job: this pipeline outlives the browser connection, and a
+  // dropped connection used to lose a result that had already completed.
+  const [searchToken, setSearchToken] = useState(0)
+  const dock = useMutation({
+    mutationFn: () =>
+      api.chainStart({
+        feature: 'molecular_docking',
+        inputs: { protein_pdb: proteinPdb, ligand_smiles: smiles },
+        params: { samples_per_complex: numSamples },
+        mlflow_run_name: runName,
+        mlflow_experiment: experiment,
+      }),
+    onSuccess: () => setSearchToken((t) => t + 1),
+  })
 
   // When a new result arrives, jump to the top-ranked pose so the viewer
   // shows something meaningful immediately.
-  useEffect(() => {
-    if (!dock.data?.poses?.length) {
-      setSelectedRank(null)
-      return
-    }
-    const firstOk = dock.data.poses.find((p) => !p.error) ?? dock.data.poses[0]
-    setSelectedRank(firstOk.rank)
-  }, [dock.data])
-
   const canRun = Boolean(
     smiles.trim() && proteinPdb.trim() && experiment.trim() && runName.trim() && !dock.isPending,
   )
 
-  const runDocking = () =>
-    dock.start({
-      protein_pdb: proteinPdb,
-      ligand_smiles: smiles,
-      num_samples: numSamples,
-      mlflow_experiment: experiment,
-      mlflow_run_name: runName,
-    })
-
-  const selectedPose = useMemo<DockingPose | null>(() => {
-    if (!dock.data || selectedRank == null) return null
-    return dock.data.poses.find((p) => p.rank === selectedRank) ?? null
-  }, [dock.data, selectedRank])
-
-  const tableColumns = useMemo<ColumnDef<DockingPose, unknown>[]>(
-    () => [
-      { id: 'rank', header: 'Rank', accessorKey: 'rank' },
-      {
-        id: 'confidence',
-        header: 'Confidence',
-        accessorFn: (r) => r.confidence.toFixed(4),
-      },
-      {
-        id: 'status',
-        header: 'Status',
-        cell: (ctx) =>
-          ctx.row.original.error ? (
-            <span className="text-destructive">Failed</span>
-          ) : (
-            <span className="text-success">OK</span>
-          ),
-      },
-    ],
-    [],
-  )
-
-  const mlflowUrl = dock.data
-    ? `${window.location.protocol}//${window.location.host.replace(/-\d+\.aws\.databricksapps\.com$/, '')}/ml/experiments/${dock.data.experiment_id}/runs/${dock.data.run_id}`
-    : null
+  const runDocking = () => dock.mutate()
 
   return (
     <div className="space-y-4">
@@ -215,93 +167,41 @@ export function MolecularDockingTab() {
           </div>
         </div>
 
-        {/* Right viewer + results */}
+        {/* Right: dispatch banner + Search Past Runs — the run shows up here
+            immediately and refreshes itself, so nothing is lost if the tab
+            closes or the connection drops. */}
         <div className="space-y-3">
-          {dock.isPending && (
-            <RealtimeProgress
-              title={`Generating ${numSamples} pose${numSamples > 1 ? 's' : ''}`}
-              pct={dock.progress?.pct ?? 0}
-              msg={dock.progress?.msg ?? 'Starting…'}
-              stages={[
-                { label: 'Computing ESM-2 embeddings', pctEnd: 25 },
-                { label: 'Running DiffDock pose generation', pctEnd: 85 },
-                { label: 'Building viewers + logging', pctEnd: 100 },
-              ]}
-            />
+          {dock.isSuccess && dock.data && (
+            <div className="rounded-md border border-success/40 bg-success/10 p-3 text-xs">
+              <p className="font-medium text-success">Job launched</p>
+              <p className="mt-1 text-muted-foreground">
+                Run <span className="font-mono">{runName}</span> is queued. It appears
+                below and updates on its own — you can close this tab.
+              </p>
+              {dock.data.job_run_url && (
+                <a href={dock.data.job_run_url} target="_blank" rel="noreferrer"
+                   className="mt-1 inline-block text-primary underline">
+                  Open the job run
+                </a>
+              )}
+            </div>
           )}
-
-          {dock.error && (
-            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {dock.isError && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
               {String(dock.error)}
             </div>
           )}
 
-          {dock.data && dock.data.poses.length === 0 && (
-            <div className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-              DiffDock returned no poses.
-            </div>
-          )}
-
-          {dock.data && dock.data.poses.length > 0 && (
-            <>
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="block text-xs">
-                  <span className="mb-1 block uppercase tracking-wide text-muted-foreground">
-                    Pose
-                  </span>
-                  <select
-                    value={selectedRank ?? ''}
-                    onChange={(e) => setSelectedRank(parseInt(e.target.value))}
-                    className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-                  >
-                    {dock.data.poses.map((p) => (
-                      <option key={p.rank} value={p.rank}>
-                        Rank {p.rank} — confidence {p.confidence.toFixed(4)}
-                        {p.error ? ' (failed)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="text-xs text-muted-foreground">
-                  {dock.data.n_success}/{dock.data.poses.length} pose
-                  {dock.data.poses.length === 1 ? '' : 's'} succeeded
-                </div>
-                {mlflowUrl && (
-                  <a
-                    href={mlflowUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="ml-auto text-xs text-primary hover:underline"
-                  >
-                    View MLflow run ↗
-                  </a>
-                )}
-              </div>
-
-              {selectedPose?.error ? (
-                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200">
-                  Pose generation reported an error: {selectedPose.error}
-                </div>
-              ) : null}
-
-              <MolstarViewer viewerHtml={selectedPose?.viewer_html ?? null} height={520} />
-
-              <details className="rounded-md border border-border">
-                <summary className="cursor-pointer px-4 py-2 text-sm">
-                  All docking results
-                </summary>
-                <div className="p-3">
-                  <DataTable columns={tableColumns} data={dock.data.poses} />
-                </div>
-              </details>
-            </>
-          )}
-
-          {!dock.isPending && !dock.data && !dock.error && (
-            <div className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-              Submit the form to dock the selected ligand against the target protein.
-            </div>
-          )}
+          <RunSearchSection
+            searchKey={['molecular_docking', 'runs']}
+            searchFn={api.chainSearch('molecular_docking')}
+            detailLabel="Poses"
+            detailColClass="min-w-[140px]"
+            initialText="molecular_docking"
+            viewableStatuses={['complete']}
+            searchToken={searchToken}
+            renderDialog={(run) => <ChainRunResult run={run} />}
+          />
         </div>
       </div>
     </div>

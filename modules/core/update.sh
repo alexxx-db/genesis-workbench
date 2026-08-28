@@ -145,6 +145,15 @@ fi
 echo "Extra Params: $EXTRA_PARAMS"
 
 echo ""
+echo "▶️ Pulling dashboard edits made in the workspace UI"
+echo ""
+# Lakeview dashboards are editable in the UI, and DAB blocks a deploy once one has
+# drifted. Pull those edits into the repo first so they land as a reviewable git
+# diff instead of being clobbered by --force. No-op when nothing changed.
+chmod +x resources/dashboards/sync_dashboards.sh
+./resources/dashboards/sync_dashboards.sh "${DATABRICKS_CONFIG_PROFILE:-DEFAULT}"
+
+echo ""
 echo "▶️ Rendering dashboard templates"
 echo ""
 # Dashboards whose queries reference the GWB catalog/schema are kept as .tmpl —

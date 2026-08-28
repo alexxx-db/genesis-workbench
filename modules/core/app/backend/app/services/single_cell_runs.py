@@ -13,7 +13,7 @@ import pandas as pd
 from databricks.sdk import WorkspaceClient
 from mlflow.tracking import MlflowClient
 
-from genesis_workbench.models import set_mlflow_experiment
+from genesis_workbench.models import get_batch_job_id, set_mlflow_experiment
 from genesis_workbench.workbench import UserInfo
 
 logger = logging.getLogger(__name__)
@@ -348,17 +348,22 @@ def start_job(
     picks it up immediately, then kicks the job with mlflow_run_id passed
     through so the notebook attaches to the same run."""
     if mode == "scanpy":
-        job_env_var = "RUN_SCANPY_JOB_ID"
+        job_env_var, job_name = "RUN_SCANPY_JOB_ID", "run_scanpy"
     elif mode == "rapids-singlecell":
-        job_env_var = "RUN_RAPIDSSINGLECELL_JOB_ID"
+        job_env_var, job_name = "RUN_RAPIDSSINGLECELL_JOB_ID", "run_rapidssinglecell"
     else:
         raise ValueError(f"Unknown processing mode: {mode!r}")
 
-    job_id = os.environ.get(job_env_var)
+    # These jobs live in the single_cell bundle, so core's app.yml cannot bind them
+    # as app resources (${resources.jobs.*.id} does not cross bundles) and the env
+    # var is never populated by a deploy. batch_models is the cross-bundle source of
+    # truth — the submodule writes its job id there at registration. Env still wins
+    # when set, so an operator can pin a specific job without a redeploy.
+    job_id = os.environ.get(job_env_var) or get_batch_job_id(job_name)
     if not job_id:
         raise RuntimeError(
-            f"{mode} job not registered (env {job_env_var} unset). "
-            "Deploy the corresponding submodule first."
+            f"{mode} job not registered: no active '{job_name}' row in batch_models "
+            f"and env {job_env_var} is unset. Deploy the corresponding submodule first."
         )
 
     experiment = set_mlflow_experiment(
