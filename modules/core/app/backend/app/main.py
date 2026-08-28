@@ -11,6 +11,7 @@ from app.routers import (
     assistant,
     bionemo,
     bootstrap,
+    chains,
     docs,
     genomics,
     health,
@@ -51,6 +52,7 @@ app = FastAPI(
 )
 
 app.include_router(health.router)
+app.include_router(chains.router)
 app.include_router(me.router)
 app.include_router(bootstrap.router)
 app.include_router(profile.router)

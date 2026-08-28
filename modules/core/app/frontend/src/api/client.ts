@@ -259,6 +259,35 @@ export const api = {
       `/api/small_molecule/molecule_optimization/search?by=${by}&text=${encodeURIComponent(text)}`,
     ),
 
+  // Generic executor-chain job API. One set of endpoints serves binder design,
+  // ligand binder design, motif scaffolding, ADMET and protein design. The
+  // matching /stream routes still exist but cannot survive a long run — the
+  // browser connection drops while the server finishes and logs to MLflow.
+  chainStart: (body: {
+    feature: string
+    inputs: Record<string, unknown>
+    params: Record<string, unknown>
+    mlflow_run_name: string
+    mlflow_experiment?: string
+  }) =>
+    request<{
+      job_id: number
+      job_run_id: number
+      mlflow_run_id: string
+      experiment_id: string
+      job_run_url: string
+    }>('/api/chains/start', { method: 'POST', body: JSON.stringify(body) }),
+
+  chainSearch: (feature: string) => (by: 'run_name' | 'experiment_name', text: string) =>
+    request<DBSearchResponse>(
+      `/api/chains/search?feature=${encodeURIComponent(feature)}&by=${by}&text=${encodeURIComponent(text)}`,
+    ),
+
+  chainResult: (run_id: string) =>
+    request<{ status: string; result: Record<string, unknown>; error: string }>(
+      `/api/chains/result?run_id=${encodeURIComponent(run_id)}`,
+    ),
+
   inverseFolding: (args: { pdb: string; experiment_name?: string; run_name?: string }) =>
     request<InverseFoldingResponse>('/api/large_molecule/inverse_folding', {
       method: 'POST',

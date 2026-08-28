@@ -23,6 +23,7 @@ from app.services.dataframe_endpoint import query_dataframe_endpoint
 from app.services.endpoints import get_endpoint_name
 from app.services.protein import hit_esmfold
 
+
 logger = logging.getLogger(__name__)
 
 

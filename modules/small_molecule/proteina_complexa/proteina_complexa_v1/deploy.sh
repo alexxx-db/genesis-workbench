@@ -30,3 +30,12 @@ echo "🚨 This job might take a long time to finish. See Jobs & Pipeline tab fo
 echo ""
 
 databricks bundle run --target $TARGET register_proteina_complexa $EXTRA_PARAMS --no-wait
+
+echo ""
+echo "▶️ [Proteina-Complexa] Registering the generic chain runner job"
+echo ""
+# Records run_binder_design_job_id in `settings` and grants the app SP
+# CAN_MANAGE_RUN. Without it the app cannot dispatch chain-backed workflows — its
+# jobs.list(name=...) lookup returns empty from the app's context.
+# Run synchronously: the app depends on the settings row existing.
+databricks bundle run --target $TARGET register_chain_job $EXTRA_PARAMS

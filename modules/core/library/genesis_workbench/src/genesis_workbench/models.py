@@ -254,6 +254,30 @@ def get_batch_models(model_category: str) -> pd.DataFrame:
     return execute_select_query(query, parameters={"model_category": model_category})
 
 
+def get_batch_job_id(job_name: str) -> str | None:
+    """Resolve a batch job's numeric id from batch_models, by job name.
+
+    Module submodules register their jobs into batch_models at deploy time, which
+    makes that table the only cross-bundle source of job ids: the core app cannot
+    reference ${resources.jobs.*.id} for a job defined in the single_cell (or any
+    other module) bundle, so app-resource env bindings only work for jobs that live
+    in core's own bundle. Callers in the app should prefer this over an env var.
+
+    Returns None when the submodule has not been deployed.
+    """
+    query = (
+        f"SELECT job_id "
+        f"FROM {os.environ['CORE_CATALOG_NAME']}.{os.environ['CORE_SCHEMA_NAME']}.batch_models "
+        f"WHERE job_name = :job_name AND is_active = true "
+        f"ORDER BY model_added_date DESC LIMIT 1"
+    )
+    df = execute_select_query(query, parameters={"job_name": job_name})
+    if df is None or df.empty:
+        return None
+    job_id = df.iloc[0]["job_id"]
+    return str(job_id) if job_id is not None else None
+
+
 def _sql_val(val):
     """Format a Python value as a SQL literal, escaping single quotes and handling None."""
     if val is None:

@@ -1,0 +1,52 @@
+resources:
+  jobs:
+    register_chain_job:
+      name: register_chain_gwb
+
+      email_notifications:
+        on_failure:
+          - ${var.current_user}
+
+      job_clusters:
+        - job_cluster_key: chain_register_cluster
+          new_cluster:
+            num_workers: 0
+            node_type_id: ${var.cpu_node_type}
+            driver_node_type_id: ${var.cpu_node_type}
+            spark_version: '15.4.x-scala2.12'
+            enable_elastic_disk: true
+            data_security_mode: SINGLE_USER
+            single_user_name: ${workspace.current_user.userName}
+            spark_conf:
+              spark.databricks.cluster.profile: singleNode
+              spark.master: local[*]
+            custom_tags:
+              ResourceClass: SingleNode
+
+      tasks:
+        - task_key: register_orchestrator_job
+          max_retries: 0
+          job_cluster_key: chain_register_cluster
+          notebook_task:
+            notebook_path: ../notebooks/register_chain_job.py
+
+      parameters:
+        - name: catalog
+          default: ${var.core_catalog_name}
+        - name: schema
+          default: ${var.core_schema_name}
+        # Same-bundle reference: the orchestrator job is defined alongside this one,
+        # so its id resolves at deploy time. (A cross-bundle ${resources.jobs.*.id}
+        # would not resolve — that is why the id is persisted into `settings`.)
+        - name: run_chain_job_id
+          default: ${resources.jobs.run_chain_job.id}
+        - name: user_email
+          default: ${var.current_user}
+        - name: sql_warehouse_id
+          default: ${var.sql_warehouse_id}
+        - name: databricks_app_name
+          default: ${var.app_name}
+        - name: databricks_app_names
+          default: genesis-workbench:mcp-genesis-workbench
+
+      tags: ${var.common_resource_tags}

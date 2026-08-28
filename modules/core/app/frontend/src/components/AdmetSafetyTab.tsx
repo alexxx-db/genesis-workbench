@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 
+import { api } from '@/api/client'
+import { RunSearchSection } from '@/components/RunSearchSection'
+import { ChainRunResult } from '@/components/ChainRunResult'
 import { ClipboardPaste } from '@/components/ClipboardPaste'
-import { RealtimeProgress } from '@/components/RealtimeProgress'
-import { useSseMutation } from '@/hooks/useSseMutation'
-import type { AdmetResponse } from '@/types/api'
-import { cn } from '@/lib/utils'
 
 const EXAMPLE_SMILES = `COc(cc1)ccc1C#N
 CC(=O)Oc1ccccc1C(=O)O
@@ -17,29 +17,9 @@ function ts(): string {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-function fmtPct(v: number | null | undefined): string {
-  if (v == null || Number.isNaN(v)) return '—'
-  return `${(v * 100).toFixed(1)}%`
-}
 
-function fmtFloat(v: number | null | undefined, digits = 3): string {
-  if (v == null || Number.isNaN(v)) return '—'
-  return v.toFixed(digits)
-}
 
-function riskColor(v: number | null | undefined): string {
-  if (v == null) return 'text-muted-foreground'
-  if (v >= 0.7) return 'text-destructive'
-  if (v >= 0.3) return 'text-amber-300'
-  return 'text-success'
-}
 
-function riskLabel(v: number | null | undefined): string {
-  if (v == null) return 'N/A'
-  if (v >= 0.7) return 'High'
-  if (v >= 0.3) return 'Medium'
-  return 'Low'
-}
 
 export function AdmetSafetyTab() {
   const [smilesText, setSmilesText] = useState(EXAMPLE_SMILES)
@@ -49,20 +29,26 @@ export function AdmetSafetyTab() {
   const [runKermt, setRunKermt] = useState(true)
   const [experiment, setExperiment] = useState('gwb_admet_safety')
   const [runName, setRunName] = useState(`admet_profiling_${ts()}`)
-  const [expandedIdx, setExpandedIdx] = useState<number | null>(0)
 
-  const profile = useSseMutation<
-    {
-      smiles: string[]
-      run_bbbp: boolean
-      run_clintox: boolean
-      run_admet: boolean
-      run_kermt: boolean
-      mlflow_experiment: string
-      mlflow_run_name: string
-    },
-    AdmetResponse
-  >('/api/small_molecule/admet/stream')
+  // Dispatched as a job: this pipeline outlives the browser connection, and a
+  // dropped connection used to lose a result that had already completed.
+  const [searchToken, setSearchToken] = useState(0)
+  const profile = useMutation({
+    mutationFn: () =>
+      api.chainStart({
+        feature: 'admet',
+        inputs: { smiles: smilesList },
+        params: {
+          run_bbbp: runBbbp,
+          run_clintox: runClintox,
+          run_admet: runAdmet,
+          run_kermt: runKermt,
+        },
+        mlflow_run_name: runName,
+        mlflow_experiment: experiment,
+      }),
+    onSuccess: () => setSearchToken((t) => t + 1),
+  })
 
   const smilesList = useMemo(
     () =>
@@ -80,47 +66,9 @@ export function AdmetSafetyTab() {
     runName.trim() &&
     (runBbbp || runClintox || runAdmet || runKermt)
 
-  const runProfile = () =>
-    profile.start({
-      smiles: smilesList,
-      run_bbbp: runBbbp,
-      run_clintox: runClintox,
-      run_admet: runAdmet,
-      run_kermt: runKermt,
-      mlflow_experiment: experiment,
-      mlflow_run_name: runName,
-    })
+  const runProfile = () => profile.mutate()
 
-  const mlflowUrl = profile.data
-    ? `${window.location.protocol}//${window.location.host.replace(/-\d+\.aws\.databricksapps\.com$/, '')}/ml/experiments/${profile.data.experiment_id}/runs/${profile.data.run_id}`
-    : null
 
-  const enabledStages = useMemo(() => {
-    const stages: { label: string; pctEnd: number }[] = []
-    const enabledCount =
-      Number(runBbbp) + Number(runClintox) + Number(runAdmet) + Number(runKermt)
-    if (enabledCount === 0) return stages
-    const step = 85 / enabledCount
-    let acc = 10
-    if (runBbbp) {
-      acc += step
-      stages.push({ label: 'BBB penetration (Chemprop)', pctEnd: Math.round(acc) })
-    }
-    if (runClintox) {
-      acc += step
-      stages.push({ label: 'Clinical toxicity (Chemprop)', pctEnd: Math.round(acc) })
-    }
-    if (runAdmet) {
-      acc += step
-      stages.push({ label: 'ADMET multi-task (Chemprop)', pctEnd: Math.round(acc) })
-    }
-    if (runKermt) {
-      acc += step
-      stages.push({ label: 'KERMT toxicity (GROVER)', pctEnd: Math.round(acc) })
-    }
-    stages.push({ label: 'Logging to MLflow', pctEnd: 100 })
-    return stages
-  }, [runBbbp, runClintox, runAdmet, runKermt])
 
   return (
     <div className="space-y-4">
@@ -245,187 +193,41 @@ export function AdmetSafetyTab() {
           </div>
         </div>
 
-        {/* Right results */}
+        {/* Right: dispatch banner + Search Past Runs — the run shows up here
+            immediately and refreshes itself, so nothing is lost if the tab
+            closes or the connection drops. */}
         <div className="space-y-3">
-          {profile.isPending && (
-            <RealtimeProgress
-              title={`Profiling ${smilesList.length} molecule${smilesList.length === 1 ? '' : 's'}`}
-              pct={profile.progress?.pct ?? 0}
-              msg={profile.progress?.msg ?? 'Starting…'}
-              stages={enabledStages}
-            />
+          {profile.isSuccess && profile.data && (
+            <div className="rounded-md border border-success/40 bg-success/10 p-3 text-xs">
+              <p className="font-medium text-success">Job launched</p>
+              <p className="mt-1 text-muted-foreground">
+                Run <span className="font-mono">{runName}</span> is queued. It appears
+                below and updates on its own — you can close this tab.
+              </p>
+              {profile.data.job_run_url && (
+                <a href={profile.data.job_run_url} target="_blank" rel="noreferrer"
+                   className="mt-1 inline-block text-primary underline">
+                  Open the job run
+                </a>
+              )}
+            </div>
           )}
-
-          {profile.error && (
-            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {profile.isError && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
               {String(profile.error)}
             </div>
           )}
 
-          {profile.data?.warnings?.map((w, i) => (
-            <div
-              key={i}
-              className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200"
-            >
-              {w}
-            </div>
-          ))}
-
-          {profile.data && profile.data.smiles.length > 0 && (
-            <>
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium">
-                  Results — {profile.data.smiles.length} molecule
-                  {profile.data.smiles.length === 1 ? '' : 's'}
-                </h4>
-                {mlflowUrl && (
-                  <a
-                    href={mlflowUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-primary hover:underline"
-                  >
-                    View MLflow run ↗
-                  </a>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                {profile.data.smiles.map((smi, idx) => {
-                  const expanded = expandedIdx === idx
-                  const bbbp = profile.data!.bbbp?.[idx] ?? null
-                  const clintox = profile.data!.clintox?.[idx] ?? null
-                  const admetRow = profile.data!.admet?.[idx] ?? null
-                  const kermtRow = profile.data!.kermt?.[idx] ?? null
-                  const kermtPrimary = kermtRow
-                    ? ((Object.values(kermtRow).find(
-                        (v) => v != null && !Number.isNaN(v as number),
-                      ) as number | undefined) ?? null)
-                    : null
-                  const admetPropCount = admetRow
-                    ? Object.values(admetRow).filter((v) => v != null && !Number.isNaN(v as number))
-                        .length
-                    : 0
-                  return (
-                    <div
-                      key={idx}
-                      className="rounded-md border border-border bg-card"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setExpandedIdx(expanded ? null : idx)}
-                        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-accent/40"
-                      >
-                        <code className="truncate font-mono text-xs">{smi}</code>
-                        <span className="text-[10px] text-muted-foreground">
-                          {expanded ? '▾' : '▸'}
-                        </span>
-                      </button>
-                      {expanded && (
-                        <div className="space-y-3 border-t border-border p-3">
-                          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-                            <div className="rounded-md border border-border bg-muted/30 p-2 text-xs">
-                              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                                BBB penetration
-                              </div>
-                              <div className="text-sm font-medium">{fmtPct(bbbp)}</div>
-                              {bbbp != null && (
-                                <div className={cn('mt-0.5 text-[10px]', riskColor(bbbp))}>
-                                  {bbbp >= 0.5 ? 'Permeable' : 'Non-permeable'}
-                                </div>
-                              )}
-                            </div>
-                            <div className="rounded-md border border-border bg-muted/30 p-2 text-xs">
-                              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                                Toxicity (Chemprop)
-                              </div>
-                              <div className="text-sm font-medium">{fmtPct(clintox)}</div>
-                              {clintox != null && (
-                                <div className={cn('mt-0.5 text-[10px]', riskColor(clintox))}>
-                                  {riskLabel(clintox)}
-                                </div>
-                              )}
-                            </div>
-                            <div className="rounded-md border border-primary/40 bg-primary/5 p-2 text-xs">
-                              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                                Toxicity (KERMT)
-                              </div>
-                              <div className="text-sm font-medium">{fmtPct(kermtPrimary)}</div>
-                              {kermtPrimary != null && (
-                                <div className={cn('mt-0.5 text-[10px]', riskColor(kermtPrimary))}>
-                                  {riskLabel(kermtPrimary)}
-                                </div>
-                              )}
-                              <div
-                                className="mt-0.5 text-[9px] text-muted-foreground"
-                                title="Probabilities Platt-calibrated on the ClinTox holdout"
-                              >
-                                Calibrated · ClinTox
-                              </div>
-                            </div>
-                            <div className="rounded-md border border-border bg-muted/30 p-2 text-xs">
-                              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                                ADMET properties
-                              </div>
-                              <div className="text-sm font-medium">
-                                {admetRow ? `${admetPropCount} predicted` : '—'}
-                              </div>
-                            </div>
-                          </div>
-
-                          {kermtRow && Object.keys(kermtRow).length > 1 && (
-                            <div>
-                              <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                                KERMT breakdown
-                              </div>
-                              <div className="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
-                                {Object.entries(kermtRow).map(([k, v]) => (
-                                  <div
-                                    key={k}
-                                    className="flex justify-between gap-3 rounded-md bg-primary/5 px-2 py-1"
-                                  >
-                                    <span className="text-muted-foreground">{k}</span>
-                                    <span className="font-mono">{fmtFloat(v as number)}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {admetRow && (
-                            <div>
-                              <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                                ADMET breakdown
-                              </div>
-                              <div className="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
-                                {Object.entries(admetRow).map(([k, v]) => (
-                                  <div
-                                    key={k}
-                                    className="flex justify-between gap-3 rounded-md bg-muted/20 px-2 py-1"
-                                  >
-                                    <span className="text-muted-foreground">{k}</span>
-                                    <span className="font-mono">{fmtFloat(v as number)}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </>
-          )}
-
-          {!profile.isPending && !profile.data && !profile.error && (
-            <div className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-              Paste one or more SMILES strings and pick which predictors to run. Each enabled
-              Chemprop endpoint will score every molecule; collapsible cards below summarise
-              BBB penetration, clinical toxicity, and the per-task ADMET breakdown.
-            </div>
-          )}
+          <RunSearchSection
+            searchKey={['admet', 'runs']}
+            searchFn={api.chainSearch('admet')}
+            detailLabel="Molecules"
+            detailColClass="min-w-[140px]"
+            initialText="admet_profiling"
+            viewableStatuses={['complete']}
+            searchToken={searchToken}
+            renderDialog={(run) => <ChainRunResult run={run} />}
+          />
         </div>
       </div>
     </div>

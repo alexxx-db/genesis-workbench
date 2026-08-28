@@ -185,6 +185,50 @@ def _chain_admet_screen(w: WorkspaceClient, inputs: dict, params: dict, progress
     return out
 
 
+def _chain_molecular_docking(w: WorkspaceClient, inputs: dict, params: dict, progress=None) -> dict:
+    """Dock a ligand into a protein and return every pose, ranked by confidence.
+
+    Mirrors the two-step pipeline the UI used inline (ESM-2 embed -> DiffDock),
+    exposed as a chain so it can be dispatched as a job instead of held open on an
+    HTTP request. `_diffdock_best` shares the same two calls but keeps only the
+    winner; docking users want the full pose list.
+    """
+    i = inputs or {}
+    p = params or {}
+    protein_pdb = str(i.get("protein_pdb") or "")
+    ligand_smiles = str(i.get("ligand_smiles") or "")
+    if not protein_pdb or not ligand_smiles:
+        raise RuntimeError("molecular_docking: protein_pdb and ligand_smiles required")
+    n = int(p.get("samples_per_complex", 10) or 10)
+
+    _emit(progress, 10, "Computing ESM-2 embeddings")
+    emb = _df_split(w, "diffdock_esm_embeddings", ["protein_pdb"], [protein_pdb])
+    b64 = emb[0].get("embeddings_b64", "{}") if emb else "{}"
+
+    _emit(progress, 35, f"Generating {n} pose(s) with DiffDock")
+    poses = _df_split(
+        w, "diffdock",
+        ["protein_pdb", "ligand_smiles", "samples_per_complex", "esm_embeddings_b64"],
+        [protein_pdb, ligand_smiles, n, b64],
+    )
+
+    results = []
+    for idx, pose in enumerate(poses):
+        sdf = str(pose.get("ligand_sdf", ""))
+        # The endpoint reports per-pose failures inline rather than raising.
+        if sdf.startswith("ERROR"):
+            continue
+        results.append({
+            "sample_id": f"pose_{idx}",
+            "ligand_sdf": sdf,
+            "confidence": float(pose.get("confidence", 0) or 0),
+        })
+    results.sort(key=lambda r: r["confidence"], reverse=True)
+
+    _emit(progress, 100, f"Docking complete — {len(results)} pose(s)")
+    return {"designs": results, "target_pdb": protein_pdb, "ligand_smiles": ligand_smiles}
+
+
 def _reindex_chain_pdb(pdb_text: str, chain_id: str = "A") -> str:
     """Reindex chain residues contiguously (RFDiffusion inpainting needs it).
     Uses BioPython — imported lazily so the core stays import-light; callers that
@@ -413,6 +457,7 @@ _CHAINS = {
     "protein_binder_design": _chain_protein_binder_design,
     "ligand_binder_design": _chain_ligand_binder_design,
     "motif_scaffolding": _chain_motif_scaffolding,
+    "molecular_docking": _chain_molecular_docking,
 }
 
 # All chains execute (protein_design + the *_design chains touch ESMFold/Proteina;
