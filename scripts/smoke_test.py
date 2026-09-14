@@ -67,7 +67,12 @@ def check_jobs(w, prefix: str, limit: int) -> Result:
         if seen > limit:
             break
         state = getattr(run, "state", None)
-        result = str(getattr(state, "result_state", "") or "")
+        # The SDK hands back a RunResultState enum: str() on it yields
+        # "RunResultState.SUCCESS", which never equals "SUCCESS" — comparing the
+        # stringified enum reported every *succeeding* run as a failure. Take the
+        # enum's value (falling back to the last dotted segment for a plain str).
+        raw = getattr(state, "result_state", None)
+        result = (getattr(raw, "value", None) or (str(raw) if raw else "")).rsplit(".", 1)[-1]
         if result and result != "SUCCESS":
             bad.append(f"{name} — run {run.run_id}: {result}")
     if not seen:
@@ -182,9 +187,19 @@ def check_apps(w, app_substr: str) -> Result:
     apps = [a for a in w.apps.list() if app_substr in (a.name or "")]
     if not apps:
         return Result("apps", SKIP, f"No Databricks App matching '{app_substr}'.")
-    bad = [f"{a.name} — {getattr(getattr(a, 'app_status', None), 'state', None)}"
-           for a in apps
-           if not str(getattr(getattr(a, "app_status", None), "state", "")).endswith("RUNNING")]
+    bad = []
+    for a in apps:
+        # apps.list() leaves app_status unset (the API omits it); only apps.get()
+        # populates it, so listing alone read every app as not-RUNNING.
+        try:
+            detail = w.apps.get(name=a.name)
+        except Exception as e:  # noqa: BLE001 — an unreadable app is still a finding
+            bad.append(f"{a.name} — could not read status: {e}")
+            continue
+        raw = getattr(getattr(detail, "app_status", None), "state", None)
+        state = (getattr(raw, "value", None) or (str(raw) if raw else "")).rsplit(".", 1)[-1]
+        if state != "RUNNING":
+            bad.append(f"{a.name} — {state or 'unknown'}")
     if bad:
         return Result("apps", FAIL, f"{len(bad)} of {len(apps)} GWB app(s) not RUNNING.", bad)
     return Result("apps", PASS, f"All {len(apps)} GWB app(s) RUNNING.")

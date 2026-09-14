@@ -156,7 +156,13 @@ def test_unknown_op_raises():
 
 
 def test_zzz_all_ops_covered():
-    """Guard: every op the dispatcher handles is exercised above (smiles via importorskip
-    still counts — it's invoked). Fails if a new transform is added without a test."""
+    """Guard: every op the dispatcher handles is exercised above. Fails if a
+    new transform is added without a test. smiles_to_pdb is rdkit-gated
+    (importorskip) so it is not in _TESTED_OPS when rdkit is absent — that is
+    a skip, not a missing test."""
     missing = ALL_OPS - _TESTED_OPS
+    try:
+        import rdkit  # noqa: F401
+    except ImportError:
+        missing.discard("smiles_to_pdb")
     assert not missing, f"transform ops with no test: {missing}"

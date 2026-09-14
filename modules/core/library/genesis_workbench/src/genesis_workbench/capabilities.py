@@ -13,8 +13,12 @@ belong to the per-pathway adapters. See `executor.py` for running a capability.
 from __future__ import annotations
 
 import json
+import logging
 import os
+import time
 from dataclasses import dataclass, field
+
+from databricks.sdk import WorkspaceClient
 
 from .models import ModelCategory, get_deployed_models
 from .node_catalog import (
@@ -34,6 +38,8 @@ CHAIN = "endpoint_chain"
 TRANSFORM = "transform"
 
 _MODULES = ("large_molecule", "small_molecule", "single_cell", "genomics")
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -344,14 +350,65 @@ def _batch_node_to_capability(n) -> Capability | None:
     return None
 
 
+# Prebuilt-workflow jobs (genomics, fine-tunes, KERMT, …) are plain Databricks
+# Jobs, not rows in batch_models, so the node catalog can name a job this
+# workspace never deployed — the genomics nodes on a core+bio install, say.
+# Resolve the live job names once and cache them briefly, so a module deployed
+# after the process started becomes available without a restart.
+_ALL_JOB_NAMES_TTL_SECONDS = 300
+_all_job_names_cache: set[str] | None = None
+_all_job_names_cache_ts: float = 0.0
+
+
+def _live_job_names() -> set[str] | None:
+    """Every job name in the workspace, or None when the lookup failed and no
+    cached answer survives. Callers read None as *unknown* and leave availability
+    alone, so a transient Jobs API blip can't retract every workflow at once."""
+    global _all_job_names_cache, _all_job_names_cache_ts
+    now = time.monotonic()
+    if (_all_job_names_cache is not None
+            and (now - _all_job_names_cache_ts) < _ALL_JOB_NAMES_TTL_SECONDS):
+        return _all_job_names_cache
+    names: set[str] = set()
+    try:
+        for j in WorkspaceClient().jobs.list():
+            settings = getattr(j, "settings", None)
+            if settings and settings.name:
+                names.add(str(settings.name))
+    except Exception as e:  # noqa: BLE001 — degrade gracefully
+        logger.warning("capabilities: jobs list failed: %s", e)
+        return _all_job_names_cache  # prior cache, or None for "unknown"
+    _all_job_names_cache = names
+    _all_job_names_cache_ts = now
+    return names
+
+
+def _mark_job_availability(caps: list[Capability]) -> list[Capability]:
+    """A databricks_job capability is runnable only if its job exists here.
+
+    Endpoint capabilities already derive existence from the live deployment
+    registry; job-backed workflows come from the node catalog, which is published
+    for every module whether or not it was deployed. Without this gate an adapter
+    advertises a workflow it can only fail to dispatch."""
+    job_caps = [c for c in caps if c.kind == JOB]
+    if not job_caps:
+        return caps
+    live = _live_job_names()
+    if live is None:
+        return caps
+    for c in job_caps:
+        c.available = bool(c.job_name) and c.job_name in live
+    return caps
+
+
 def workflow_capabilities() -> list[Capability]:
     """Prebuilt workflows. Source of truth is the `node_catalog` table (published
     from CURATED_NODES); falls back to the legacy `prebuilt_workflows` registry if
     node_catalog has no BATCH rows (pre-publish / missing table)."""
     batch = [n for n in read_catalog_nodes() if n.category == NodeCategory.BATCH]
-    if batch:
-        return [c for c in (_batch_node_to_capability(n) for n in batch) if c]
-    return _workflow_capabilities_legacy()
+    caps = ([c for c in (_batch_node_to_capability(n) for n in batch) if c]
+            if batch else _workflow_capabilities_legacy())
+    return _mark_job_availability(caps)
 
 
 def _workflow_capabilities_legacy() -> list[Capability]:
