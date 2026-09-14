@@ -114,6 +114,12 @@ def _register_tools() -> int:
     for cap in list_capabilities():
         if cap.kind == CHAIN and (cap.chain_id not in RUNNABLE_CHAINS):
             continue  # listed in capabilities, not yet a runnable tool
+        if not cap.available:
+            # e.g. a genomics workflow node published into the catalog on an
+            # install where the genomics module was never deployed: its job does
+            # not exist, so advertising the tool only buys a dispatch failure.
+            logger.info("skipping unavailable capability %s", cap.id)
+            continue
         name = _tool_name(cap)
         if name is None:
             continue
@@ -148,7 +154,10 @@ def _register_tools() -> int:
         out = []
         for cap in list_capabilities():
             name = _tool_name(cap)
-            runnable = name is not None and not (cap.kind == CHAIN and cap.chain_id not in RUNNABLE_CHAINS)
+            # Mirrors the registration filter above, so "runnable" never
+            # advertises a tool that tools/list doesn't actually carry.
+            runnable = (name is not None and cap.available
+                        and not (cap.kind == CHAIN and cap.chain_id not in RUNNABLE_CHAINS))
             out.append({"kind": cap.kind, "label": cap.label, "module": cap.module,
                         "tool": name if runnable else None, "runnable": runnable,
                         "authorized": authorize(cap.module, audit=False).allowed,

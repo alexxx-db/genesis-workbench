@@ -26,6 +26,12 @@ router = APIRouter(prefix="/api/chains", tags=["chains"])
 
 
 def _user_info(user: CurrentUserDep) -> UserInfo:
+    """Build the library's UserInfo from the OBO headers.
+
+    UserInfo requires all six fields (user_email, user_name, user_id, user_groups,
+    user_access_token, user_display_name) — constructing it with a subset raises at
+    call time, not import time, so it only shows up when a user clicks Launch.
+    """
     w = WorkspaceClient()
     try:
         me = w.current_user.me()
@@ -33,9 +39,12 @@ def _user_info(user: CurrentUserDep) -> UserInfo:
     except Exception:
         user_name = display_name = user.preferred_username
     return UserInfo(
-        user_email=user.email,
-        user_name=user_name,
-        display_name=display_name,
+        user_email=user.email or "",
+        user_name=user_name or (user.preferred_username or ""),
+        user_id=user.user_id or "",
+        user_groups=[],
+        user_access_token=user.access_token,
+        user_display_name=display_name or (user.preferred_username or ""),
     )
 
 

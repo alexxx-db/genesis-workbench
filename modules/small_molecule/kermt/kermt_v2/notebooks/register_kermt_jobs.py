@@ -31,7 +31,10 @@ print(gwb_library_path)
 
 # COMMAND ----------
 
-# MAGIC %pip install {gwb_library_path} --force-reinstall
+# MAGIC # --no-deps: the pip block above already installs every dependency the wheel
+# MAGIC # declares (as floors, not pins). Without it, --force-reinstall re-resolves
+# MAGIC # them to latest and pulls a cryptography that breaks pyOpenSSL (GEN_EMAIL).
+# MAGIC %pip install {gwb_library_path} --force-reinstall --no-deps
 # MAGIC %pip install databricks-sdk==0.50.0 databricks-sql-connector==4.0.3 mlflow==2.22.0
 # MAGIC dbutils.library.restartPython()
 
